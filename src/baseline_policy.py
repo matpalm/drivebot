@@ -11,6 +11,7 @@ from sonars import Sonars
 from odom_reward import OdomReward
 from collections import OrderedDict
 import json
+import util
 
 robot_id = int(sys.argv[1])
 
@@ -30,6 +31,8 @@ turn_right.angular.z = -0.3
 steering = rospy.Publisher("/robot%s/cmd_vel" % robot_id, Twist, queue_size=5, latch=True)
 
 rospy.init_node('baseline_policy')
+
+util.reset_robot(robot_id)
 
 rate = rospy.Rate(1)  # hz
 while not rospy.is_shutdown():
