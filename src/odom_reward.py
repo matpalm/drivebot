@@ -17,10 +17,13 @@ class OdomReward(object):
 
     def __init__(self, robot_id):
         self.robot_id = robot_id
-        self.last_grid_pt = None  # grid point at last reward() call
-        self.latest_grid_pt = None  # constantly updated from callback
+        self.reset()
         rospy.Subscriber("/robot%s/odom" % self.robot_id, Odometry, self.odom_callback)
 
+    def reset(self):
+        self.last_grid_pt = None  # grid point at last reward() call
+        self.latest_grid_pt = None  # constantly updated from callback
+        
     def odom_callback(self, msg):
         pos = msg.pose.pose.position
         gx, gy = int(pos.x / 2), int(pos.y / 2)  # map ref -> grid ref is scale of 2

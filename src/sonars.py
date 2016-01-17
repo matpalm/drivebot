@@ -10,10 +10,13 @@ class Sonars(object):
 
     def __init__(self, robot_id):
         self.robot_id = robot_id
-        self.ranges = [None] * 3
+        self.reset()
         for idx in range(0, 3):
             # sonar 0, 1 & 2 => forward, left & right
             rospy.Subscriber("/robot%s/sonar_%s" % (self.robot_id, idx), Range, self.sonar_callback)
+
+    def reset(self):
+        self.ranges = [None] * 3
 
     def sonar_callback(self, msg):
         # record callback from one sonar into ranges []
