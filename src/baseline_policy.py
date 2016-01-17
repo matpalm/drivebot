@@ -8,19 +8,25 @@ import rospy
 from geometry_msgs.msg import Twist
 import sys
 from sonars import Sonars
+from odom_reward import OdomReward
+from collections import OrderedDict
+import json
 
 robot_id = int(sys.argv[1])
 
 # helper for max-distance of sonars
 sonars = Sonars(robot_id)
 
+# helper for tracking reward based on robot odom
+odom_reward = OdomReward(robot_id)
+
 # simple dicrete move-forward, turn-left, turn-right control set
 forward = Twist()
-forward.linear.x = 0.2
+forward.linear.x = 0.4
 turn_left = Twist()
-turn_left.angular.z = 0.2
+turn_left.angular.z = 0.3
 turn_right = Twist()
-turn_right.angular.z = -0.2
+turn_right.angular.z = -0.3
 steering = rospy.Publisher("/robot%s/cmd_vel" % robot_id, Twist, queue_size=5, latch=True)
 
 rospy.init_node('baseline_policy')
@@ -35,7 +41,12 @@ while not rospy.is_shutdown():
     else:
         steering.publish(turn_right)
 
-    print rospy.Time.now(), sonars.ranges, max_sonar_idx
+    event = OrderedDict()
+    event["time"] = str(rospy.Time.now())
+    event["ranges"] = sonars.ranges
+    event["action"] = max_sonar_idx
+    event["reward"] = odom_reward.reward()
+    print json.dumps(event)
 
     rate.sleep()
 
