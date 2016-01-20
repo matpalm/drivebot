@@ -5,6 +5,8 @@ import rospy
 from sensor_msgs.msg import Range
 import numpy as np
 import re
+import time
+import sys
 
 class Sonars(object):
 
@@ -16,7 +18,8 @@ class Sonars(object):
             rospy.Subscriber("/robot%s/sonar_%s" % (self.robot_id, idx), Range, self.sonar_callback)
 
     def reset(self):
-        self.ranges = [None] * 3
+        # dft noop value for case of sonars not publishing yet
+        self.ranges = [0] * 3
 
     def sonar_callback(self, msg):
         # record callback from one sonar into ranges []
@@ -25,11 +28,11 @@ class Sonars(object):
         r = msg.range
         if r > msg.max_range: r = msg.max_range
         if r < msg.min_range: r = 0
-        self.ranges[idx] = r
+        self.ranges[idx] = int(r * 100)  # for ease of reading
 
-    def max_dist_sonar(self):
-        # which sonar is reporting the furthest distance?
-        return np.argmax(self.ranges[:3])
+def max_dist_sonar(ranges):
+    # which sonar is reporting the furthest distance?
+    return np.argmax(ranges)
     
     
             
