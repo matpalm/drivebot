@@ -1,5 +1,4 @@
 # simple wrapper for sonars 0,1,2 (forward, left & right) of an stdr pandora_robot
-# records distances via callback & provides a which-is-furthest-away helper
 
 import rospy
 from sensor_msgs.msg import Range

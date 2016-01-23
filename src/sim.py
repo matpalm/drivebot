@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-# sim harness for trivial baseline control policy. checks forward, left and right sonars and if
-# forward reports the largest distance move forward and if left/right reports
-# largest distance turn (on spot) left/right.
+# sim harness for connecting a bot running in a ROS stdr simulation with a decision policy
 
 import rospy
 import argparse

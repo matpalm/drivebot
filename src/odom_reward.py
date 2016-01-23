@@ -1,5 +1,6 @@
 # reward progress around track by breaking it into larg(ish) grid squares
-# and giving +1 if we progress to the next square & -5 if we back a square.
+# and giving +10 if we progress to the next grid square,  -30 if we 
+# move back a grid square and +1 if we move at all.
 # the baseline track was designed to "fit" into simple coarse squares to
 # make this reward calc simpler.
 
