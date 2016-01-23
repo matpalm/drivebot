@@ -4,15 +4,19 @@
 # forward reports the largest distance move forward and if left/right reports
 # largest distance turn (on spot) left/right.
 
-from sonars import Sonars, max_dist_sonar
+import numpy as np
 
 class BaselinePolicy(object):
 
-    def action_given_state(self, ranges):
-        # action is just index of max distance sonar
-        return max_dist_sonar(ranges)
+    def action_given_state(self, state_idx):
+        # expects FurthestSonarIdxer which will directly emit what
+        # this policy chooses as an action
+        return state_idx
 
     def train(self, state_1, action, reward, state_2):
+        pass
+
+    def debug_model(self, state_idxer):
         pass
 
     def end_of_episode(self):

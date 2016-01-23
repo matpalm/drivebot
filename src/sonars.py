@@ -30,9 +30,6 @@ class Sonars(object):
         if r < msg.min_range: r = 0
         self.ranges[idx] = int(r * 100)  # for ease of reading
 
-def max_dist_sonar(ranges):
-    # which sonar is reporting the furthest distance?
-    return np.argmax(ranges)
     
     
             

@@ -13,66 +13,61 @@ import itertools
 import sys
 from collections import Counter
 import random
+import states
 
 DISCOUNT = 0.9  # theta
 LEARNING_RATE = 0.2 # alpha
+EXPLORE_PROB = 0.1
 
-class DiscreteDistanceOrderingQTablePolicy(object):
+# TODO: make qtable sparse; ie make rows on demand
+# TODO: make output of qtable loggable (QTABLE\tJSON) for ease of processing stats
+# TODO: make threadsafe so sim can run 2+ bots
 
-    def __init__(self):
-        o, t = 10, 20
-        #self.q_table = np.asarray([[t,o,o],[t,o,o],[o,t,o],[o,t,o],[o,o,t],[o,o,t]], dtype='float32')
-        self.q_table = 10 + np.random.uniform(size=(6, 3)) * 10 # 6 states (see below) and 3 actions
-        print "QTABLE", self.q_table
+class QTablePolicy(object):
 
-        # our states will be the 6 combination orderings of 0, 1, 2 corresponding
-        # to the sonar idxs for F, L & R respectively. we want a lookup table from
-        # these perms into the rows of the q_table
-        # TODO pull out of class, no per bot state here...
-        perms = itertools.permutations([0, 1, 2], r=3)  # 6 permutations
-        self.perm_to_state = {perm: idx for idx, perm in enumerate(perms)}  # {(0,1,2): 0, (0,2,1): 1, ... }
-        print "self.perm_to_state", self.perm_to_state
-
-        # debug / stats
+    def __init__(self, num_states, num_actions, state_id_to_string_fn):
+        self.num_states = num_states
+        self.num_actions = num_actions
+        self.q_table = 10 + np.random.uniform(size=(num_states, num_actions)) * 10
+        # debug stats denoting the frequency at which we've updated the qtable rows
         self.state_train_freq = Counter()
+        self.state_id_to_string = state_id_to_string_fn
 
-    def sonar_values_to_state_idx(self, ranges):
-        # map three sonar values to a state_idx representing 1 of 6 combos
-        sorted_values_with_idxs = sorted(enumerate(ranges), key=lambda (idx, value): -value)
-        just_idxs = tuple([v[0] for v in sorted_values_with_idxs])
-        return self.perm_to_state[just_idxs]
+    def action_given_state(self, state):
+        # trivial explore / exploit
+        if random.random() < EXPLORE_PROB:
+            # explore
+            action = int(random.random() * self.num_actions)
+            print "EXPLORE", action
+            return action
+        else:
+            # exploit: arg max of this table
+            action = np.argmax(self.q_table[state])
+            print "CHOOSE: from state", state, "(", self.state_id_to_string(state), ") q_table row", self.q_table[state], " action", action
+            return action
 
-    def action_given_state(self, ranges):
-        # TODO: explore / exploit
-        if random.random() < 0.5:  # HACKTASTIC EXPLORE
-            return int(random.random() * 3)
+    def train(self, state_1, action, reward, state_2):
+        current_q_s_a = self.q_table[state_1][action]
 
-        print ">action_given_state", ranges
-        if ranges[0] is None:
-            # race condition with sonar, just go forward...
-            print >>sys.stderr, "null sonar reading? just startup race?"
-            return 0
-        state_idx = self.sonar_values_to_state_idx(ranges)
-        action = np.argmax(self.q_table[state_idx])
-        print "state_idx", state_idx, "(q_table row", self.q_table[state_idx], ") action", action
-        return action
-
-    def train(self, state_1, action_idx, reward, state_2):
-        state_1_idx = self.sonar_values_to_state_idx(state_1)
-        state_2_idx = self.sonar_values_to_state_idx(state_2)
-
-        current_q_s_a = self.q_table[state_1_idx][action_idx]
-
-        max_possible_return_from_state_2 = np.max(self.q_table[state_2_idx])
+        max_possible_return_from_state_2 = np.max(self.q_table[state_2])
         candidate_q_s_a = reward + (DISCOUNT * max_possible_return_from_state_2)  # bellman equation
 
         updated_q_s_a = ((1.0 - LEARNING_RATE) * current_q_s_a) + (LEARNING_RATE * candidate_q_s_a)
         
-        print "state_1_idx", state_1_idx, "action_idx", action_idx, "reward", reward, "state_2_idx", state_2_idx,\
-            " ... current_q_s_a", current_q_s_a, "candidate_q_s_a", candidate_q_s_a, "updated_q_s_a",updated_q_s_a
-        print self.q_table
-        self.q_table[state_1_idx][action_idx] = updated_q_s_a
-        self.state_train_freq[state_1_idx] += 1
+        print "TRAIN: state_1", state_1, "(", self.state_id_to_string(state_1), ")",\
+            "action", action, "reward", reward,\
+            "state_2", state_2, "(", self.state_id_to_string(state_2), ")",\
+            " ... current_q_s_a", current_q_s_a, "max_possible_return_from_state_2", max_possible_return_from_state_2,\
+            "candidate_q_s_a", candidate_q_s_a, "updated_q_s_a",updated_q_s_a
+        
+        self.q_table[state_1][action] = updated_q_s_a
+        self.state_train_freq[state_1] += 1
+
+    def debug_model(self):
+        print "DEBUG QTABLE"
+        for i in range(len(self.q_table)):
+            if self.state_train_freq[i] > 0:
+                print i, "\t", self.state_id_to_string(i), "\t", self.state_train_freq[i], "\t", self.q_table[i]
 
     def end_of_episode(self):
         print ">>> end of episode stats"
