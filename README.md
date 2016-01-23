@@ -19,3 +19,5 @@ roslaunch stdr_launchers rviz.launch
 for now hack code for changing policy. supports baseline hard coded rules vs simple q table
 learning with a couple of different representations of state (eg ordering of sonars vs
 history of furthest sonar)
+
+![lap](blogish/lap_and_half_simple_policy.png?raw=true "lap")
