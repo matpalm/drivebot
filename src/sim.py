@@ -9,8 +9,7 @@ import sys
 from sonars import Sonars
 from odom_reward import OdomReward
 from collections import OrderedDict
-from baseline_policy import BaselinePolicy
-from q_table_policy import QTablePolicy
+import policy
 import states
 import json
 import util
@@ -39,23 +38,22 @@ steering = rospy.Publisher("/robot%s/cmd_vel" % opts.robot_id, Twist, queue_size
 
 rospy.init_node('drivebot_sim')
 
-#state_idxer = states.FurthestSonarIdxer(3)
-#policy = BaselinePolicy()
+#sonar_to_state = states.FurthestSonar(3)
+#policy = policy.BaselinePolicy()
 
-#state_idxer = states.OrderingStateIdxer(3)
-state_idxer = states.HistoryStateIdxer(5, 3)
-policy = QTablePolicy(num_states=state_idxer.state_space_size(), 
-                      num_actions=3, 
-                      state_id_to_string_fn=state_idxer.state_idx_to_string)
+#sonar_to_state = states.OrderingSonars(3)
+sonar_to_state = states.HistoryOfFurthestSonar(5, 3)
+policy = policy.QTablePolicy(num_actions=3)
 
-# TODO: support multiple bots
+# TODO: support multiple bots. not trivial though since this process, by virtue or rospy.Rate
+# is inherently running only one bot...
 
 for episode_id in range(opts.num_episodes):
     # reset robot state
     util.reset_robot(opts.robot_id)
     sonars.reset()
     odom_reward.reset()
-    state_idxer.reset()
+    sonar_to_state.reset()
 
     # an episode is a stream of [s1, a, r, s2] events
     # for a async simulated time system the "gap" between a and r is represented by a 'rate' limited loop
@@ -82,9 +80,8 @@ for episode_id in range(opts.num_episodes):
         last_reward = reward
 
         # get policy to convert lastest sensor reading to a state idx
-        current_state = state_idxer.state_idx_given_new_ranges(sonars.ranges)
-        print "sonars.ranges=%s => current_state=%s (%s)" % (sonars.ranges, current_state,\
-                                                             state_idxer.state_idx_to_string(current_state))
+        current_state = sonar_to_state.state_given_new_ranges(sonars.ranges)
+        print "sonars.ranges=%s => current_state=%s" % (sonars.ranges, current_state)
 
         # decide action and apply to bot
         action = policy.action_given_state(current_state)
