@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import json
 import sys
+
+episode_id = 0 
 for line in sys.stdin:
     if line.startswith("EPISODE"):
         line = line.replace("EPISODE\t","")
-        d = json.loads(line)
-        print len(d)
-
-#    rewards = [r['reward'] for r in d]
-#    print sum(rewards), "\t", rewards
-
+        episode = json.loads(line)
+        rewards = [event['r'] for event in episode]
+        print "\t".join(map(str, [episode_id, len(episode), sum(rewards)]))
+        episode_id += 1

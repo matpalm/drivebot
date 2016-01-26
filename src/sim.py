@@ -7,25 +7,34 @@ import argparse
 from geometry_msgs.msg import Twist
 import sys
 from sonars import Sonars
-from odom_reward import OdomReward
+import odom_reward
 from collections import OrderedDict
 import policy
 import states
 import json
-import util
+import reset_robot_pos
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
 parser.add_argument('--max-episode-len', type=int, default=1000)
 parser.add_argument('--num-episodes', type=int, default=3)
+parser.add_argument('--max-no-rewards-run-len', type=int, default=30)
+parser.add_argument('--state-history-length', type=int, default=5, help="for HistoryOfFurthestSonar")
+parser.add_argument('--q-discount', type=float, default=0.9, 
+                    help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect")
+parser.add_argument('--q-learning-rate', type=float, default=0.1, 
+                    help="q table learning rate. 0 => never update, 1 => clobber old values completely.")
+parser.add_argument('--q-explore-prob', type=float, default=0.1, 
+                    help="trivial explore prob (vs exploit by picking arg max Q)")
 opts = parser.parse_args()
-
 print opts
+
 # helper for max-distance of sonars
 sonars = Sonars(opts.robot_id)
 
 # helper for tracking reward based on robot odom
-odom_reward = OdomReward(opts.robot_id)
+#odom_reward = odom_reward.CoarseGridReward(opts.robot_id)
+odom_reward = odom_reward.MovingOdomReward(opts.robot_id)
 
 # simple dicrete move-forward, turn-left, turn-right control set
 forward = Twist()
@@ -42,15 +51,20 @@ rospy.init_node('drivebot_sim')
 #policy = policy.BaselinePolicy()
 
 #sonar_to_state = states.OrderingSonars(3)
-sonar_to_state = states.HistoryOfFurthestSonar(5, 3)
-policy = policy.QTablePolicy(num_actions=3)
+sonar_to_state = states.HistoryOfFurthestSonar(opts.state_history_length, 3)
+policy = policy.QTablePolicy(num_actions=3, discount=opts.q_discount, 
+                             learning_rate=opts.q_learning_rate, 
+                             explore_prob=opts.q_explore_prob)
 
 # TODO: support multiple bots. not trivial though since this process, by virtue or rospy.Rate
 # is inherently running only one bot...
 
+reset_pos = reset_robot_pos.BotPosition(opts.robot_id)
+
 for episode_id in range(opts.num_episodes):
     # reset robot state
-    util.reset_robot(opts.robot_id)
+    reset_pos.reset_robot_random_pose()  # totally random pose
+    #reset_pos.reset_robot_on_straight_section()  # reset on track, on straight section, facing clockwise
     sonars.reset()
     odom_reward.reset()
     sonar_to_state.reset()
@@ -65,7 +79,7 @@ for episode_id in range(opts.num_episodes):
     last_reward = None
     no_rewards_run_len = 0  # we keep track of runs of 0 rewards as a way of early stopping episode
 
-    while len(episode) < opts.max_episode_len and no_rewards_run_len < 10:
+    while len(episode) < opts.max_episode_len and no_rewards_run_len < opts.max_no_rewards_run_len:
         if rospy.is_shutdown():
             break
 

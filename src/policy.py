@@ -4,6 +4,7 @@ import sys
 from collections import defaultdict, Counter
 import random
 import states
+import util as u
 
 # trivial baseline control policy. checks forward, left and right sonars and if
 # forward reports the largest distance move forward and if left/right reports
@@ -50,9 +51,12 @@ class QTablePolicy(object):
             print "EXPLORE:", action
             return action
         else:
-            # exploit: arg max of this table
-            action = np.argmax(self.q_table[state])
-            print "CHOOSE: based on state", state, " q_table row", self.q_table[state], " argmax is action", action
+            # exploit: weighted pic of table
+            #action = np.argmax(self.q_table[state])
+            raised_state_probs = [v**3 for v in self.q_table[state]]
+            normed = u.normalised(raised_state_probs)
+            action = u.weighted_choice(normed)
+            print "CHOOSE: based on state", state, " q_table row", self.q_table[state], " (normed to", normed, ") => action", action
             return action
 
     def train(self, state_1, action, reward, state_2):
@@ -61,7 +65,7 @@ class QTablePolicy(object):
         max_possible_return_from_state_2 = np.max(self.q_table[state_2])
         candidate_q_s_a = reward + (self.discount * max_possible_return_from_state_2)  # bellman equation
 
-        updated_q_s_a = ((1.0 - self.learning_rate) * current_q_s_a) + (self.learning_rate * candidate_q_s_a)
+        updated_q_s_a = ((1.-self.learning_rate) * current_q_s_a) + (self.learning_rate * candidate_q_s_a)
         
         print "TRAIN: state_1", state_1, "action", action, "reward", reward, "state_2", state_2,\
             " ... current_q_s_a", current_q_s_a, "max_possible_return_from_state_2", max_possible_return_from_state_2,\
@@ -72,8 +76,9 @@ class QTablePolicy(object):
 
     def debug_model(self):
         print "DEBUG QTABLE:"
-        for state in self.q_table.keys():
-            print "\t".join(map(str, [state, self.state_train_freq[state], self.q_table[state]]))
+        state_freqs = list(self.state_train_freq.iteritems())
+        for state, freq in sorted(state_freqs, key=lambda (s, f): -f):            
+            print "\t".join(map(str, [state, freq, self.q_table[state]]))
 
     def end_of_episode(self):
         print ">>> end of episode stats"
