@@ -24,8 +24,6 @@ parser.add_argument('--q-discount', type=float, default=0.9,
                     help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect")
 parser.add_argument('--q-learning-rate', type=float, default=0.1, 
                     help="q table learning rate. 0 => never update, 1 => clobber old values completely.")
-parser.add_argument('--q-explore-prob', type=float, default=0.1, 
-                    help="trivial explore prob (vs exploit by picking arg max Q)")
 opts = parser.parse_args()
 print opts
 
@@ -53,8 +51,7 @@ rospy.init_node('drivebot_sim')
 #sonar_to_state = states.OrderingSonars(3)
 sonar_to_state = states.HistoryOfFurthestSonar(opts.state_history_length, 3)
 policy = policy.QTablePolicy(num_actions=3, discount=opts.q_discount, 
-                             learning_rate=opts.q_learning_rate, 
-                             explore_prob=opts.q_explore_prob)
+                             learning_rate=opts.q_learning_rate)
 
 # TODO: support multiple bots. not trivial though since this process, by virtue or rospy.Rate
 # is inherently running only one bot...

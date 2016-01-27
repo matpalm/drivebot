@@ -34,29 +34,21 @@ class BaselinePolicy(object):
 
 class QTablePolicy(object):
 
-    def __init__(self, num_actions, discount=0.9, learning_rate=0.2, explore_prob=0.1):
+    def __init__(self, num_actions, discount=0.9, learning_rate=0.2):
         self.num_actions = num_actions
         self.q_table = defaultdict(lambda : 10 + np.random.uniform(size=num_actions) * 3)
         # debug stats denoting the frequency at which we've updated the qtable entries
         self.state_train_freq = Counter()
         self.discount = discount
         self.learning_rate = learning_rate
-        self.explore_prob = explore_prob
 
     def action_given_state(self, state):
-        # trivial explore / exploit
-        if random.random() < self.explore_prob:
-            # explore
-            action = int(random.random() * self.num_actions)
-            print "EXPLORE:", action
-            return action
-        else:
-            # exploit: weighted pic of table
-            raised_state_probs = [v**3 for v in self.q_table[state]]
-            normed = u.normalised(raised_state_probs)
-            action = u.weighted_choice(normed)
-            print "CHOOSE: based on state", state, " q_table row", self.q_table[state], " (normed to", normed, ") => action", action
-            return action
+        # exploit: weighted pic of table
+        raised_state_probs = [v**3 for v in self.q_table[state]]
+        normed = u.normalised(raised_state_probs)
+        action = u.weighted_choice(normed)
+        print "CHOOSE: based on state", state, " q_table row", self.q_table[state], " (normed to", normed, ") => action", action
+        return action
 
     def train(self, state_1, action, reward, state_2):
         current_q_s_a = self.q_table[state_1][action]
