@@ -40,9 +40,9 @@ odom_reward = odom_reward.MovingOdomReward(opts.robot_id)
 forward = Twist()
 forward.linear.x = 1.0
 turn_left = Twist()
-turn_left.angular.z = 0.6
+turn_left.angular.z = 1.2
 turn_right = Twist()
-turn_right.angular.z = -0.6
+turn_right.angular.z = -1.2
 steering = rospy.Publisher("/robot%s/cmd_vel" % opts.robot_id, Twist, queue_size=5, latch=True)
 
 rospy.init_node('drivebot_sim')
@@ -84,14 +84,16 @@ for episode_id in range(opts.num_episodes):
             break
 
         # fetch reward (for last event)
-        reward = odom_reward.reward()   
+        reward = odom_reward.reward(last_action)
 
         # keep track of runs of no rewards
-        if last_reward == 0 and reward == 0:
+        if last_reward <= 0 and reward <= 0:
             no_rewards_run_len += 1
         else:
             no_rewards_run_len = 0 
         last_reward = reward
+
+        # if last_action was move forward, and we got no reward from it, punish thins
 
         # get policy to convert lastest sensor reading to a state idx
         current_state = sonar_to_state.state_given_new_ranges(sonars.ranges)
@@ -120,7 +122,7 @@ for episode_id in range(opts.num_episodes):
             event['s2'] = current_state
             print "EVENT\t", event, "\tno_rewards_run_len", no_rewards_run_len
             episode.append(event)
-            policy.train(last_state, action, reward, current_state)
+            policy.train(last_state, last_action, reward, current_state)
             event_id += 1
         last_state = current_state
         last_action = action

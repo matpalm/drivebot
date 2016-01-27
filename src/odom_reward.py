@@ -33,7 +33,7 @@ class MovingOdomReward(object):
     def odom_callback(self, msg):
         self.latest_pos = msg.pose.pose.position
 
-    def reward(self):
+    def reward(self, last_action):
         if self.latest_pos == None:
             # no callbacks yet
             return 0
@@ -43,8 +43,16 @@ class MovingOdomReward(object):
             self.last_pos = self.latest_pos
             return 0
                 
-        # give reward if any movement made
-        r = 0 if close(self.latest_pos, self.last_pos) else 1
+        # give reward if any movement made. 
+        if not close(self.latest_pos, self.last_pos):
+            r = 1
+        else:
+            if last_action == 0 :
+                # explictly punish if no movement made and last action was to move forward
+                r = -1
+            else:
+                # no reward, but we're turning, so no reward, but no punishment
+                r = 0
 
         # update last pos
         self.last_pos = self.latest_pos
