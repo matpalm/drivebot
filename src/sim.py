@@ -45,11 +45,12 @@ steering = rospy.Publisher("/robot%s/cmd_vel" % opts.robot_id, Twist, queue_size
 
 rospy.init_node('drivebot_sim')
 
-#sonar_to_state = states.FurthestSonar(3)
+#sonar_to_state = states.FurthestSonar()
 #policy = policy.BaselinePolicy()
 
 #sonar_to_state = states.OrderingSonars(3)
-sonar_to_state = states.HistoryOfFurthestSonar(opts.state_history_length, 3)
+#sonar_to_state = states.StateHistory(states.OrderingSonars(), opts.state_history_length)
+sonar_to_state = states.StateHistory(states.FurthestSonar(), opts.state_history_length)
 policy = policy.QTablePolicy(num_actions=3, discount=opts.q_discount, 
                              learning_rate=opts.q_learning_rate)
 
@@ -64,10 +65,11 @@ for episode_id in range(opts.num_episodes):
     #reset_pos.reset_robot_on_straight_section()  # reset on track, on straight section, facing clockwise
     sonars.reset()
     odom_reward.reset()
-    sonar_to_state.reset()
 
-    # an episode is a stream of [s1, a, r, s2] events
+    # an episode is a stream of [state_1, action, reward, state_2] events
     # for a async simulated time system the "gap" between a and r is represented by a 'rate' limited loop
+    # for debugging (and more flexible replay) we also keep track of the raw sonar.ranges in the event
+    last_ranges = None
     last_state = None
     last_action = None
     episode = []
@@ -93,8 +95,8 @@ for episode_id in range(opts.num_episodes):
         # if last_action was move forward, and we got no reward from it, punish thins
 
         # get policy to convert lastest sensor reading to a state idx
-        current_state = sonar_to_state.state_given_new_ranges(sonars.ranges)
-        print "sonars.ranges=%s => current_state=%s" % (sonars.ranges, current_state)
+        current_ranges = list(sonars.ranges)
+        current_state = sonar_to_state.state_given_new_ranges(current_ranges)
 
         # decide action and apply to bot
         action = policy.action_given_state(current_state)
@@ -113,19 +115,21 @@ for episode_id in range(opts.num_episodes):
             event['t'] = str(rospy.Time.now())
             event['epi_id'] = episode_id
             event['eve_id'] = event_id
-            event['s1'] = last_state
-            event['a'] = last_action
-            event['r'] = reward
-            event['s2'] = current_state
-            print "EVENT\t", event, "\tno_rewards_run_len", no_rewards_run_len
+            event['ranges_1'] = last_ranges
+            event['state_1'] = last_state
+            event['action'] = last_action
+            event['reward'] = reward
+            event['ranges_2'] = current_ranges
+            event['state_2'] = current_state
+            print "EVENT\tepi_id=%s eve_id=%s no_rewards_run_len=%s" % (episode_id, event_id, no_rewards_run_len)
             episode.append(event)
             policy.train(last_state, last_action, reward, current_state)
             event_id += 1
+
+        # flush last_XYZ for next event
+        last_ranges = current_ranges
         last_state = current_state
         last_action = action
-
-        if len(episode) % 5 == 0:
-            policy.debug_model()
 
         # let sim run...
         rate.sleep()

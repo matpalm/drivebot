@@ -11,6 +11,7 @@ class BotPosition(object):
         srv_str = "/robot%s/replace" % robot_id
         rospy.wait_for_service(srv_str)
         self.move = rospy.ServiceProxy(srv_str, MoveRobot)
+        # TODO: handle rospy.service.ServiceException which can thrown from this
         self.starting_random_positions = None
         self.straight_section_poses = None
 
