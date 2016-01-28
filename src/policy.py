@@ -1,3 +1,4 @@
+import rospy
 import numpy as np
 import itertools
 import sys
@@ -34,17 +35,19 @@ class BaselinePolicy(object):
 
 class QTablePolicy(object):
 
-    def __init__(self, num_actions, discount=0.9, learning_rate=0.1, state_normalisation_squash=5):
+    def __init__(self, num_actions):
         self.num_actions = num_actions
         self.q_table = defaultdict(lambda : 10 + np.random.uniform(size=num_actions) * 3)
         # debug stats denoting the frequency at which we've updated the qtable entries
         self.state_train_freq = Counter()
-        self.discount = discount
-        self.learning_rate = learning_rate
+        self.refresh_params()
 
-        # to what power do we raise states before normalising them for weighted pick?
-        # <1 => more explore like (uniform pick), 1 => untouched, >3+ => more exploit like (tends to argmax)
-        self.state_normalisation_squash = state_normalisation_squash
+    def refresh_params(self):
+        params = rospy.get_param("q_table_policy")
+        print "REFRESH_PARAM\t%s" % params
+        self.discount = params['discount']
+        self.learning_rate = params['learning_rate']
+        self.state_normalisation_squash = params['state_normalisation_squash']
 
     def _state_row_normalised_for_pick(self, state):
         raised_state_probs = [v**self.state_normalisation_squash for v in self.q_table[state]]
@@ -82,3 +85,4 @@ class QTablePolicy(object):
         print ">>> end of episode stats"
         self.debug_model()
         print "state_train_freq", self.state_train_freq
+        self.refresh_params()

@@ -17,15 +17,21 @@ import reset_robot_pos
 parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
 parser.add_argument('--max-episode-len', type=int, default=1000)
-parser.add_argument('--num-episodes', type=int, default=3)
-parser.add_argument('--max-no-rewards-run-len', type=int, default=30)
-parser.add_argument('--state-history-length', type=int, default=5, help="for HistoryOfFurthestSonar")
+parser.add_argument('--num-episodes', type=int, default=100000)
+parser.add_argument('--max-no-rewards-run-len', type=int, default=30, help="early stop episode if no +ve reward in this many steps")
+parser.add_argument('--state-history-length', type=int, default=4, help="for states.StateHistory")
 parser.add_argument('--q-discount', type=float, default=0.9, 
                     help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect")
 parser.add_argument('--q-learning-rate', type=float, default=0.1, 
                     help="q table learning rate. 0 => never update, 1 => clobber old values completely.")
+parser.add_argument('--q-state-normalisation-squash', type=float, default=1.0, 
+                    help="what power to raise sonar ranges to before normalisation. <1 => explore (tends to uniform), >1 => exploit (tends to argmax)")
 opts = parser.parse_args()
-print opts
+
+# push args to param server (clumsy, todo: move into qtable)
+rospy.set_param("/q_table_policy/discount", opts.q_discount)
+rospy.set_param("/q_table_policy/learning_rate", opts.q_learning_rate)
+rospy.set_param("/q_table_policy/state_normalisation_squash", opts.q_state_normalisation_squash)
 
 # helper for max-distance of sonars
 sonars = Sonars(opts.robot_id)
@@ -51,8 +57,7 @@ rospy.init_node('drivebot_sim')
 #sonar_to_state = states.OrderingSonars(3)
 #sonar_to_state = states.StateHistory(states.OrderingSonars(), opts.state_history_length)
 sonar_to_state = states.StateHistory(states.FurthestSonar(), opts.state_history_length)
-policy = policy.QTablePolicy(num_actions=3, discount=opts.q_discount, 
-                             learning_rate=opts.q_learning_rate)
+policy = policy.QTablePolicy(num_actions=3)
 
 # TODO: support multiple bots. not trivial though since this process, by virtue or rospy.Rate
 # is inherently running only one bot...
@@ -85,7 +90,7 @@ for episode_id in range(opts.num_episodes):
         # fetch reward (for last event)
         reward = odom_reward.reward(last_action)
 
-        # keep track of runs of no rewards
+        # keep track of runs of no +ve reward
         if last_reward <= 0 and reward <= 0:
             no_rewards_run_len += 1
         else:
