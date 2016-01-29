@@ -70,6 +70,7 @@ for episode_id in range(opts.num_episodes):
     #reset_pos.reset_robot_on_straight_section()  # reset on track, on straight section, facing clockwise
     sonars.reset()
     odom_reward.reset()
+    sonar_to_state.reset()
 
     # an episode is a stream of [state_1, action, reward, state_2] events
     # for a async simulated time system the "gap" between a and r is represented by a 'rate' limited loop
@@ -117,7 +118,6 @@ for episode_id in range(opts.num_episodes):
         # flush a single event to episode and train with it
         if last_state is not None:
             event = OrderedDict()
-            event['t'] = str(rospy.Time.now())
             event['epi_id'] = episode_id
             event['eve_id'] = event_id
             event['ranges_1'] = last_ranges
