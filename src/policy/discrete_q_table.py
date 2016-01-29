@@ -7,25 +7,6 @@ import random
 import states
 import util as u
 
-# trivial baseline control policy. checks forward, left and right sonars and if
-# forward reports the largest distance move forward and if left/right reports
-# largest distance turn (on spot) left/right.
-class BaselinePolicy(object):
-
-    def action_given_state(self, state):
-        # expects FurthestSonarIdxer which will directly emit what
-        # this policy chooses as an action
-        return state
-
-    def train(self, state_1, action, reward, state_2):
-        pass
-
-    def debug_model(self):
-        pass
-
-    def end_of_episode(self):
-        pass
-
 # qtable policy based on a discrete version of sonar values similar to baseline
 # states are defined ordering of F, L & R based on order of sonar distances.
 # eg state 'FRL' denotes F sonar is closest, then R and finally L.
@@ -33,7 +14,7 @@ class BaselinePolicy(object):
 # forward reports the largest distance move forward and if left/right reports
 # largest distance turn (on spot) left/right.
 
-class QTablePolicy(object):
+class DiscreteQTablePolicy(object):
 
     def __init__(self, num_actions):
         self.num_actions = num_actions

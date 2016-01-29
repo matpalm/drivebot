@@ -9,7 +9,8 @@ import sys
 from sonars import Sonars
 import odom_reward
 from collections import OrderedDict
-import policy
+import policy.baseline
+import policy.discrete_q_table
 import states
 import json
 import reset_robot_pos
@@ -52,12 +53,12 @@ steering = rospy.Publisher("/robot%s/cmd_vel" % opts.robot_id, Twist, queue_size
 rospy.init_node('drivebot_sim')
 
 #sonar_to_state = states.FurthestSonar()
-#policy = policy.BaselinePolicy()
+#policy = policy.baseline.BaselinePolicy()
 
 #sonar_to_state = states.OrderingSonars(3)
 #sonar_to_state = states.StateHistory(states.OrderingSonars(), opts.state_history_length)
 sonar_to_state = states.StateHistory(states.FurthestSonar(), opts.state_history_length)
-policy = policy.QTablePolicy(num_actions=3)
+policy = policy.discrete_q_table.DiscreteQTablePolicy(num_actions=3)
 
 # TODO: support multiple bots. not trivial though since this process, by virtue or rospy.Rate
 # is inherently running only one bot...
