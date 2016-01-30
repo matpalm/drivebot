@@ -3,6 +3,7 @@
 # sim harness for connecting a bot running in a ROS stdr simulation with a decision policy
 
 import rospy
+import math
 import argparse
 from geometry_msgs.msg import Twist
 import sys
@@ -25,7 +26,7 @@ parser.add_argument('--q-discount', type=float, default=0.9,
                     help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect. only applicable for QTablePolicies.")
 parser.add_argument('--q-learning-rate', type=float, default=0.1, 
                     help="q table learning rate. 0 => never update, 1 => clobber old values completely. only applicable for QTablePolicies.")
-parser.add_argument('--q-state-normalisation-squash', type=float, default=1.0, 
+parser.add_argument('--q-state-normalisation-squash', type=float, default=0.001, 
                     help="what power to raise sonar ranges to before normalisation."\
                          " <1 => explore (tends to uniform), >1 => exploit (tends to argmax)."\
                          " only applicable for QTablePolicies.")
@@ -57,8 +58,10 @@ if opts.policy == "Baseline":
 elif opts.policy == "DiscreteQTablePolicy":
     policy = policy.discrete_q_table.DiscreteQTablePolicy(num_actions=3)
 elif opts.policy == "NNQTablePolicy":
+    hidden_size = int(math.sqrt(sonar_to_state.state_size() * 3))
+    print "NNQTablePolicy #input", sonar_to_state.state_size(), "#hidden", hidden_size
     policy = policy.nn_q_table.NNQTablePolicy(state_size=sonar_to_state.state_size(),
-                                              num_actions=3, hidden_layer_size=10)
+                                              num_actions=3, hidden_layer_size=hidden_size)
 else:
     raise Exception("unknown --policy %s" % opts.policy)
 
