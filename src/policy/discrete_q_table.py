@@ -30,17 +30,18 @@ class DiscreteQTablePolicy(object):
         self.learning_rate = params['learning_rate']
         self.state_normalisation_squash = params['state_normalisation_squash']
 
-    def _state_row_normalised_for_pick(self, state):
-        raised_state_probs = [v**self.state_normalisation_squash for v in self.q_table[state]]
-        return u.normalised(raised_state_probs)
+    def q_values_normalised_for_pick(self, state):
+        return u.normalised(u.raised(self.q_table[state], self.state_normalisation_squash))
         
     def action_given_state(self, state):
-        normed = self._state_row_normalised_for_pick(state)
+        state = tuple(state)
+        normed = self.q_values_normalised_for_pick(state)
         action = u.weighted_choice(normed)
-        print "CHOOSE\t based on state", state, " q_table row", self.q_table[state], " (normed to", normed, ") => action", action
+        print "CHOOSE\t based on state", state, "q_values", self.q_table[state], "(normed to", normed, ") => action", action
         return action
 
     def train(self, state_1, action, reward, state_2):
+        state_1, state_2 = tuple(state_1), tuple(state_2)
         current_q_s_a = self.q_table[state_1][action]
 
         max_possible_return_from_state_2 = np.max(self.q_table[state_2])
@@ -58,9 +59,9 @@ class DiscreteQTablePolicy(object):
     def debug_model(self):
         print "DEBUG QTABLE:"
         state_freqs = list(self.state_train_freq.iteritems())
-        for state, freq in sorted(state_freqs, key=lambda (s, f): -f):            
+        for state, freq in sorted(state_freqs, key=lambda (s, f): -f):
             if freq > 2:
-                print "\t".join(map(str, [state, freq, self.q_table[state], self._state_row_normalised_for_pick(state)]))
+                print "\t".join(map(str, [state, freq, self.q_table[state], self.q_values_normalised_for_pick(state)]))
 
     def end_of_episode(self):
         print ">>> end of episode stats"

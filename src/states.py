@@ -13,16 +13,40 @@ class FurthestSonar:
     def reset(self):
         pass
 
+    def state_size(self):
+        return 1
+
 # given sonar readings return a state based on the 6 possible orderings.
 # { FLR, FRL, LFR, LRF, RFL, RLf }
 class OrderingSonars:
-    def state_given_new_ranges(self, s):
-        i_v_sorted_by_v = sorted(enumerate(s), key=lambda (i, v): -v)
+    def state_given_new_ranges(self, ranges):
+        i_v_sorted_by_v = sorted(enumerate(ranges), key=lambda (i, v): -v)
         just_i = [i for (i, v) in i_v_sorted_by_v]
         return tuple(just_i)
 
     def reset(self):
         pass
+
+    def state_size(self):
+        return 3
+
+# standardises sonar values based on some (precomputed) mean / std
+class StandardisedSonars:
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def state_given_new_ranges(self, ranges):
+        stdd = [(v-self.mean)/self.std for v in ranges]
+        print "ranges", ranges, "stdd", stdd
+        return stdd
+
+    def reset(self):
+        pass
+
+    def state_size(self):
+        return 3
+
 
 # wrap another sonar reader and keep track of last history_length entries.
 class StateHistory:
@@ -34,10 +58,20 @@ class StateHistory:
     def reset(self):
         self.state_ = []
 
-    def state_given_new_ranges(self, s):
-        self.state_.append(self.sonar_to_state.state_given_new_ranges(s))
-        if len(self.state_) > self.history_length:
+    def state_given_new_ranges(self, ranges):
+        partial_state = self.sonar_to_state.state_given_new_ranges(ranges)
+        if len(self.state_) == 0:
+            # for first example just buffer up history #hack
+            for _ in range(self.history_length):
+                self.state_.append(partial_state)
+        else:
+            self.state_.append(partial_state)
             self.state_.pop(0)
-        return tuple(self.state_)
+        # flatten the list of lists and, for the purpose of
+        # nn_q_table_policy, wrap it in another []
+#            flattened_state = list(itertools.chain.from_iterable(flattened_state))
+        return self.state_
 
+    def state_size(self):
+        return self.history_length * 3
 

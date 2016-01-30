@@ -11,6 +11,7 @@ import odom_reward
 from collections import OrderedDict
 import policy.baseline
 import policy.discrete_q_table
+import policy.nn_q_table
 import states
 import json
 import reset_robot_pos
@@ -20,19 +21,46 @@ parser.add_argument('--robot-id', type=int, default=0)
 parser.add_argument('--max-episode-len', type=int, default=1000)
 parser.add_argument('--num-episodes', type=int, default=100000)
 parser.add_argument('--max-no-rewards-run-len', type=int, default=30, help="early stop episode if no +ve reward in this many steps")
-parser.add_argument('--state-history-length', type=int, default=4, help="for states.StateHistory")
 parser.add_argument('--q-discount', type=float, default=0.9, 
-                    help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect")
+                    help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect. only applicable for QTablePolicies.")
 parser.add_argument('--q-learning-rate', type=float, default=0.1, 
-                    help="q table learning rate. 0 => never update, 1 => clobber old values completely.")
+                    help="q table learning rate. 0 => never update, 1 => clobber old values completely. only applicable for QTablePolicies.")
 parser.add_argument('--q-state-normalisation-squash', type=float, default=1.0, 
-                    help="what power to raise sonar ranges to before normalisation. <1 => explore (tends to uniform), >1 => exploit (tends to argmax)")
+                    help="what power to raise sonar ranges to before normalisation."\
+                         " <1 => explore (tends to uniform), >1 => exploit (tends to argmax)."\
+                         " only applicable for QTablePolicies.")
+parser.add_argument('--sonar-to-state', type=str, help="what state tranformer to use; FurthestSonar / OrderingSonars / StandardisedSonars")
+parser.add_argument('--state-history-length', type=int, default=0, help="if >1 wrap sonar-to-state in a StateHistory")
+parser.add_argument('--policy', type=str, help="what policy to use; Baseline / DiscreteQTablePolicy / NNQTablePolicy")
 opts = parser.parse_args()
 
 # push args to param server (clumsy, todo: move into qtable)
 rospy.set_param("/q_table_policy/discount", opts.q_discount)
 rospy.set_param("/q_table_policy/learning_rate", opts.q_learning_rate)
 rospy.set_param("/q_table_policy/state_normalisation_squash", opts.q_state_normalisation_squash)
+
+# config sonar -> state transformation
+if opts.sonar_to_state == "FurthestSonar":
+    sonar_to_state = states.FurthestSonar()
+elif opts.sonar_to_state == "OrderingSonars":
+    sonar_to_state = states.OrderingSonars()
+elif opts.sonar_to_state == "StandardisedSonars":
+    sonar_to_state = states.StandardisedSonars(mean=59.317, std=37.603)
+else:
+    raise Exception("unknown --sonar-to-state %s" % opts.sonar_to_state)
+if opts.state_history_length > 1:
+    sonar_to_state = states.StateHistory(sonar_to_state, opts.state_history_length)
+
+# config state -> action policy
+if opts.policy == "Baseline":
+    policy = policy.baseline.BaselinePolicy()
+elif opts.policy == "DiscreteQTablePolicy":
+    policy = policy.discrete_q_table.DiscreteQTablePolicy(num_actions=3)
+elif opts.policy == "NNQTablePolicy":
+    policy = policy.nn_q_table.NNQTablePolicy(state_size=sonar_to_state.state_size(),
+                                              num_actions=3, hidden_layer_size=10)
+else:
+    raise Exception("unknown --policy %s" % opts.policy)
 
 # helper for max-distance of sonars
 sonars = Sonars(opts.robot_id)
@@ -50,21 +78,11 @@ turn_right = Twist()
 turn_right.angular.z = -1.2
 steering = rospy.Publisher("/robot%s/cmd_vel" % opts.robot_id, Twist, queue_size=5, latch=True)
 
+# init ros node
 rospy.init_node('drivebot_sim')
-
-#sonar_to_state = states.FurthestSonar()
-#policy = policy.baseline.BaselinePolicy()
-
-#sonar_to_state = states.OrderingSonars(3)
-#sonar_to_state = states.StateHistory(states.OrderingSonars(), opts.state_history_length)
-sonar_to_state = states.StateHistory(states.FurthestSonar(), opts.state_history_length)
-policy = policy.discrete_q_table.DiscreteQTablePolicy(num_actions=3)
-
-# TODO: support multiple bots. not trivial though since this process, by virtue or rospy.Rate
-# is inherently running only one bot...
-
 reset_pos = reset_robot_pos.BotPosition(opts.robot_id)
 
+# run sim for awhile
 for episode_id in range(opts.num_episodes):
     # reset robot state
     reset_pos.reset_robot_random_pose()  # totally random pose
