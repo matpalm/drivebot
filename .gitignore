@@ -3,3 +3,5 @@
 ros_ws/devel
 ros_ws/build
 ros_ws/.catkin_workspace
+src/runs
+src/stats

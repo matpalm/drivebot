@@ -58,6 +58,12 @@ cat runs/foo.log \
 
 this data can then be piped through `./episode_to_events.py` and shuffled to build batch experience replay training data.
 
+replay a sequence of events (one per line) to the `/drivebot/training_egs` ros topic
+
+```
+# replay events from foo in random order
+cat runs/foo.log | ./log_to_episodes.py | ./episode_to_events.py | ./publish_events_to_topic.py
+```
 
 
 

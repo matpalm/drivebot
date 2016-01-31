@@ -1,3 +1,4 @@
+from drivebot.msg import TrainingExample
 import numpy as np
 import random
 
@@ -22,3 +23,13 @@ def weighted_choice(values):
         c -= values[i]
         i += 1
     return i
+
+def training_eg_msg(state1, action, reward, state2):
+    # have to flatten state to a 1d array (which is awkward since different
+    # people want different things from it....)
+    eg = TrainingExample()
+    eg.state1 = np.asarray(state1).reshape(1, -1)[0]
+    eg.action = action
+    eg.reward = reward
+    eg.state2 = np.asarray(state2).reshape(1, -1)[0]
+    return eg

@@ -2,20 +2,23 @@
 
 # sim harness for connecting a bot running in a ROS stdr simulation with a decision policy
 
-import rospy
-import math
 import argparse
-from geometry_msgs.msg import Twist
-import sys
-from sonars import Sonars
-import odom_reward
 from collections import OrderedDict
+from drivebot.msg import TrainingExample
+from geometry_msgs.msg import Twist
+import json
+import math
+import numpy as np
+import odom_reward
 import policy.baseline
 import policy.discrete_q_table
 import policy.nn_q_table
-import states
-import json
 import reset_robot_pos
+import rospy
+from sonars import Sonars
+import states
+import sys
+import util as u
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
@@ -30,9 +33,11 @@ parser.add_argument('--q-state-normalisation-squash', type=float, default=0.001,
                     help="what power to raise sonar ranges to before normalisation."\
                          " <1 => explore (tends to uniform), >1 => exploit (tends to argmax)."\
                          " only applicable for QTablePolicies.")
-parser.add_argument('--sonar-to-state', type=str, help="what state tranformer to use; FurthestSonar / OrderingSonars / StandardisedSonars")
+parser.add_argument('--sonar-to-state', type=str, default="FurthestSonar",
+                    help="what state tranformer to use; FurthestSonar / OrderingSonars / StandardisedSonars")
 parser.add_argument('--state-history-length', type=int, default=0, help="if >1 wrap sonar-to-state in a StateHistory")
-parser.add_argument('--policy', type=str, help="what policy to use; Baseline / DiscreteQTablePolicy / NNQTablePolicy")
+parser.add_argument('--policy', type=str, default="Baseline",
+                    help="what policy to use; Baseline / DiscreteQTablePolicy / NNQTablePolicy")
 opts = parser.parse_args()
 
 # push args to param server (clumsy, todo: move into qtable)
@@ -80,6 +85,9 @@ turn_left.angular.z = 1.2
 turn_right = Twist()
 turn_right.angular.z = -1.2
 steering = rospy.Publisher("/robot%s/cmd_vel" % opts.robot_id, Twist, queue_size=5, latch=True)
+
+# publish training events
+training = rospy.Publisher("/drivebot/training_egs", TrainingExample, queue_size=200)
 
 # init ros node
 rospy.init_node('drivebot_sim')
@@ -151,6 +159,7 @@ for episode_id in range(opts.num_episodes):
             print "EVENT\tepi_id=%s eve_id=%s no_rewards_run_len=%s" % (episode_id, event_id, no_rewards_run_len)
             episode.append(event)
             policy.train(last_state, last_action, reward, current_state)
+            training.publish(u.training_eg_msg(last_state, last_action, reward, current_state))
             event_id += 1
 
         # flush last_XYZ for next event
