@@ -5,7 +5,8 @@ import states
 #sonar_to_state = states.FurthestSonar() # OrderingSonars()
 #sonar_to_state = states.OrderingSonars()
 #sonar_to_state = states.StateHistory(states.FurthestSonar(), history_length=4)
-sonar_to_state = states.StateHistory(states.StandardisedSonar(mean=60, std=35), history_length=4)
+sonar_to_state = states.StateHistory(states.StandardisedSonars(mean=59.317, std=37.603), 
+                                     history_length=4)
 
 for line in sys.stdin:
     episode = json.loads(line)

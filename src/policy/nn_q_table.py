@@ -1,20 +1,10 @@
-import rospy
+from collections import Counter
+from drivebot.msg import TrainingExample
 import numpy as np
-import tensorflow as tf
-#import itertools
-#import sys
-#from collections import defaultdict, Counter
-#import random
+import rospy
 import states
+import tensorflow as tf
 import util as u
-
-# HACKING
-# batch_size = 1
-#state_size = 4  # 15
-#hidden_layer_size = 3
-#num_actions = 3
-#q_discount = 0.9
-#learning_rate = 0.001
 
 def flatten(state):
     return np.asarray(state).reshape(1, -1)
@@ -27,6 +17,8 @@ class NNQTablePolicy(object):
     def __init__(self, state_size, num_actions, hidden_layer_size):
         self.refresh_params()
         self.build_model(state_size, num_actions, hidden_layer_size )
+        rospy.Subscriber('/drivebot/training_egs', TrainingExample, self.training_msg_callback)
+        self.episode_stats = Counter()
 
     def refresh_params(self):
         params = rospy.get_param("q_table_policy")
@@ -79,22 +71,27 @@ class NNQTablePolicy(object):
 
     def action_given_state(self, state):
         # TODO: shares a lot with discrete q_table code...
-        state = flatten(state)
-        print ">>action_given_state; state", state
         # state given as iterable, we want to flatten it to (N,1) array
+        state = flatten(state)
         q_values = self.q_values_for(state)
-        print "q_values", q_values
         normed = self.q_values_normalised_for_pick(q_values[0])
         action = u.weighted_choice(normed)
-        print "CHOOSE\t based on state", state, "q_values", q_values, "(normed to", normed, ") => action", action
+        print "CHOOSE\t based on state", state.tolist(), "q_values", q_values, "(normed to", normed, ") => action", action
         return action
 
-    def train(self, state_1, action, reward, state_2):
-        # TODO: once this more stable push a bunch of this into the comp graph
+    def training_msg_callback(self, eg):
+        self.episode_stats['callback_training_eg'] += 1
+        self.train(eg.state1, eg.action, eg.reward, eg.state2)
 
+    def train(self, state_1, action, reward, state_2):
+        # TODO: introduce seperate target network
+
+        self.episode_stats['>train'] += 1
+        print ">train s1", state_1, "a", action, "r", reward, "s2", state_2
+
+        # TODO: once this more stable push a bunch of this into the comp graph        
         state_1 = flatten(state_1)
         state_2 = flatten(state_2)
-        print ">>train; action", action, "reward", reward
 
         # first do forward pass to get MAX q value for s2
         max_a_s2_q_value = self.sess.run(self.max_q_value, feed_dict={self.state: state_2})
@@ -109,13 +106,11 @@ class NNQTablePolicy(object):
         # NOTE: since we haven't dont any training yet we could have fetched this _with_
         # the same call as max_s2_q_value
         q_values = self.q_values_for(state_1)
-        print "q_values", q_values
         q_values[0][action] = updated_q_value
-        print "target q_values", q_values
+        print "q_values", q_values, "target q_values", q_values
 
         # train using this new q_value array
         self.sess.run(self.sgd, feed_dict={self.state: state_1, self.target_q_values: q_values})
-
         print "updated q_values", self.q_values_for(state_1)
 
 #        print "TRAIN\tstate_1", state_1, "action", action, "reward", reward, "state_2", state_2,\
@@ -130,3 +125,5 @@ class NNQTablePolicy(object):
     def end_of_episode(self):
         print ">>> end of episode stats"
         self.refresh_params()
+        print "EPISODE STATS", self.episode_stats
+        self.episode_stats = Counter()

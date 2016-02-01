@@ -10,19 +10,21 @@ import util as u
 parser = argparse.ArgumentParser()
 parser.add_argument('--training-eg-topic', default="/drivebot/training_egs", 
                     help="ros topic to publish TrainingExamples to")
-parser.add_argument('--delay', type=float, default=0.0,
-                    help="delay (ms) between publishing messages")
+parser.add_argument('--rate', type=float, default=0.0,
+                    help="rate (hz) to publish. 0 => fast as possible")
 opts = parser.parse_args()
-delay_ms = 0 if opts.delay <= 0 else opts.delay / 1000
 
 training = rospy.Publisher(opts.training_eg_topic, TrainingExample, queue_size=200)
-
 rospy.init_node('publish_events_to_topic')
+rate = None if opts.rate <= 0 else rospy.Rate(opts.rate)
 
 for line in sys.stdin:
+    if rospy.is_shutdown():
+        break
     event = json.loads(line)
-    training.publish(u.training_eg_msg(event['state_1'], event['action'], event['reward'], event['state_2']))
-    if delay_ms > 0:
-        time.sleep(delay_ms)
+    eg = u.training_eg_msg(event['state_1'], event['action'], event['reward'], event['state_2'])
+    training.publish(eg)
+    if rate is not None:
+        rate.sleep()
                      
     

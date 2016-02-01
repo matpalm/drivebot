@@ -37,9 +37,7 @@ class StandardisedSonars:
         self.std = std
 
     def state_given_new_ranges(self, ranges):
-        stdd = [(v-self.mean)/self.std for v in ranges]
-        print "ranges", ranges, "stdd", stdd
-        return stdd
+        return [(v-self.mean)/self.std for v in map(float, ranges)]
 
     def reset(self):
         pass

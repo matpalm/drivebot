@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
 parser.add_argument('--max-episode-len', type=int, default=1000)
 parser.add_argument('--num-episodes', type=int, default=100000)
+parser.add_argument('--episode-log-file', default="/dev/stdout", help="where to write episode log jsonl")
 parser.add_argument('--max-no-rewards-run-len', type=int, default=30, help="early stop episode if no +ve reward in this many steps")
 parser.add_argument('--q-discount', type=float, default=0.9, 
                     help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect. only applicable for QTablePolicies.")
@@ -39,6 +40,9 @@ parser.add_argument('--state-history-length', type=int, default=0, help="if >1 w
 parser.add_argument('--policy', type=str, default="Baseline",
                     help="what policy to use; Baseline / DiscreteQTablePolicy / NNQTablePolicy")
 opts = parser.parse_args()
+print "OPTS", opts
+
+episode_log = open(opts.episode_log_file, "w")
 
 # push args to param server (clumsy, todo: move into qtable)
 rospy.set_param("/q_table_policy/discount", opts.q_discount)
@@ -159,7 +163,8 @@ for episode_id in range(opts.num_episodes):
             print "EVENT\tepi_id=%s eve_id=%s no_rewards_run_len=%s" % (episode_id, event_id, no_rewards_run_len)
             episode.append(event)
             policy.train(last_state, last_action, reward, current_state)
-            training.publish(u.training_eg_msg(last_state, last_action, reward, current_state))
+            # move to this eventually when qtable is running out of policy
+            # training.publish(u.training_eg_msg(last_state, last_action, reward, current_state))  
             event_id += 1
 
         # flush last_XYZ for next event
@@ -170,11 +175,15 @@ for episode_id in range(opts.num_episodes):
         # let sim run...
         rate.sleep()
 
-    print "EPISODE\t", json.dumps(episode)
+    # write episode to log
+    print >>episode_log, json.dumps(episode)
+    episode_log.flush()
+
     policy.end_of_episode()
 
-# shutdown bot
-steering.publish(Twist())
+steering.publish(Twist())  # shutdown movement of bot
+
+episode_log.close()
 
 
 
