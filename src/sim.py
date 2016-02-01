@@ -39,6 +39,8 @@ parser.add_argument('--sonar-to-state', type=str, default="FurthestSonar",
 parser.add_argument('--state-history-length', type=int, default=0, help="if >1 wrap sonar-to-state in a StateHistory")
 parser.add_argument('--policy', type=str, default="Baseline",
                     help="what policy to use; Baseline / DiscreteQTablePolicy / NNQTablePolicy")
+parser.add_argument('--summary-log-dir', type=str, default="/tmp/nn_q_table",
+                    help="where to write tensorflow summaries (for the tensorflow models)")
 opts = parser.parse_args()
 print "OPTS", opts
 
@@ -70,7 +72,8 @@ elif opts.policy == "NNQTablePolicy":
     hidden_size = int(math.sqrt(sonar_to_state.state_size() * 3))
     print "NNQTablePolicy #input", sonar_to_state.state_size(), "#hidden", hidden_size
     policy = policy.nn_q_table.NNQTablePolicy(state_size=sonar_to_state.state_size(),
-                                              num_actions=3, hidden_layer_size=hidden_size)
+                                              num_actions=3, hidden_layer_size=hidden_size,
+                                              summary_file=opts.summary_log_dir)
 else:
     raise Exception("unknown --policy %s" % opts.policy)
 
