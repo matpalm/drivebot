@@ -24,7 +24,7 @@ class NNQTablePolicy(object):
     def refresh_params(self):
         params = rospy.get_param("q_table_policy")
         print "REFRESH_PARAM\t%s" % params
-        self.discount = params['discount']
+        self.discount_param = params['discount']
         self.learning_rate = params['learning_rate']
         self.state_normalisation_squash = params['state_normalisation_squash']
 
@@ -43,11 +43,12 @@ class NNQTablePolicy(object):
 
         # max_a q_value   (recall: target for q table training is r + max_a Q (s') )
         self.max_q_value = tf.reduce_max(self.model_q_values)
+        self.reward = tf.placeholder(dtype = tf.float32)
+        self.discount = tf.constant(self.discount_param)
+        self.updated_q_value = self.reward + (self.discount * self.max_q_value)
 
         # final target output during training will be the target Q values for the examples
         self.target_q_values = tf.placeholder(dtype = tf.float32, shape = [None, num_actions])
-
-        # derive gradients
 
         # train with a squared loss
         # TODO! make self.learning_rate a tensor so we honour changes to it!
@@ -109,13 +110,10 @@ class NNQTablePolicy(object):
         state_1 = flatten(state_1)
         state_2 = flatten(state_2)
 
-        # first do forward pass to get MAX q value for s2
-        max_a_s2_q_value = self.sess.run(self.max_q_value, feed_dict={self.state: state_2})
-
-        # from this we can define the desired q value update according to the bellman
-        # question;  r + theta * max_a Q(s2)
-        updated_q_value = reward + (self.discount * max_a_s2_q_value)
-        print "max_a_s2_q_value=", max_a_s2_q_value, "=> updated_q_value", updated_q_value
+        # first do forward pass to get max (over a) q value for s2 with reward added
+        updated_q = self.sess.run(self.updated_q_value, 
+                                  feed_dict={self.reward: reward, self.state: state_2})
+        print "s2 updated_q given reward", updated_q
 
         # fetch q_table entries for state and clobber the entry for the action
         # with with the bellman updated value. leave other values the same (so their loss is 0)
@@ -123,7 +121,7 @@ class NNQTablePolicy(object):
         # the same call as max_s2_q_value
         q_values = self.q_values_for(state_1)
         debug_str = "q_values %s" % q_values
-        q_values[0][action] = updated_q_value
+        q_values[0][action] = updated_q
         debug_str += " target q_values %s" % q_values
 
         # train using this new q_value array writing summaries every 100th call
