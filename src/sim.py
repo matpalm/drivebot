@@ -29,7 +29,7 @@ parser.add_argument('--max-no-rewards-run-len', type=int, default=30, help="earl
 parser.add_argument('--q-discount', type=float, default=0.9, 
                     help="q table discount. 0 => ignore future possible rewards, 1 => assume q future rewards perfect. only applicable for QTablePolicies.")
 parser.add_argument('--q-learning-rate', type=float, default=0.1, 
-                    help="q table learning rate. 0 => never update, 1 => clobber old values completely. only applicable for QTablePolicies.")
+                    help="q table learning rate. different interp between discrete & nn policies")
 parser.add_argument('--q-state-normalisation-squash', type=float, default=0.001, 
                     help="what power to raise sonar ranges to before normalisation."\
                          " <1 => explore (tends to uniform), >1 => exploit (tends to argmax)."\
@@ -39,17 +39,28 @@ parser.add_argument('--sonar-to-state', type=str, default="FurthestSonar",
 parser.add_argument('--state-history-length', type=int, default=0, help="if >1 wrap sonar-to-state in a StateHistory")
 parser.add_argument('--policy', type=str, default="Baseline",
                     help="what policy to use; Baseline / DiscreteQTablePolicy / NNQTablePolicy")
+# nn policy specific
+parser.add_argument('--gradient-clip', type=float, default=10) 
 parser.add_argument('--summary-log-dir', type=str, default="/tmp/nn_q_table",
                     help="where to write tensorflow summaries (for the tensorflow models)")
+parser.add_argument('--summary-log-freq', type=int, default=100,
+                    help="freq (in training examples) in which to write to summary")
+parser.add_argument('--target-network-update-freq', type=int, default=10,
+                    help="freq (in training examples) in which to flush core network to target network")
+parser.add_argument('--target-network-update-coeff', type=float, default=1.0,
+                    help="affine coeff for target network update. 0 => no update, 0.5 => mean of core/target, 1.0 => clobber target completely")
+
 opts = parser.parse_args()
 print "OPTS", opts
 
 episode_log = open(opts.episode_log_file, "w")
 
-# push args to param server (clumsy, todo: move into qtable)
+# push refreshable args to param server (clumsy, todo: move into qtable)
 rospy.set_param("/q_table_policy/discount", opts.q_discount)
 rospy.set_param("/q_table_policy/learning_rate", opts.q_learning_rate)
 rospy.set_param("/q_table_policy/state_normalisation_squash", opts.q_state_normalisation_squash)
+rospy.set_param("/q_table_policy/summary_log_freq", opts.summary_log_freq)
+rospy.set_param("/q_table_policy/target_network_update_freq", opts.target_network_update_freq)
 
 # config sonar -> state transformation
 if opts.sonar_to_state == "FurthestSonar":
@@ -73,6 +84,8 @@ elif opts.policy == "NNQTablePolicy":
     print "NNQTablePolicy #input", sonar_to_state.state_size(), "#hidden", hidden_size
     policy = policy.nn_q_table.NNQTablePolicy(state_size=sonar_to_state.state_size(),
                                               num_actions=3, hidden_layer_size=hidden_size,
+                                              gradient_clip=opts.gradient_clip,
+                                              target_network_update_coeff=opts.target_network_update_coeff,
                                               summary_file=opts.summary_log_dir)
 else:
     raise Exception("unknown --policy %s" % opts.policy)
