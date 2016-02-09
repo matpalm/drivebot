@@ -140,11 +140,11 @@ class NNQTablePolicy(object):
     def train(self, state_1, action, reward, state_2):
         self.episode_stats['>train'] += 1
         self.calls_to_train += 1
+        self.episode_stats["train a %s r %s" % (action, reward)] += 1
 
         state_1 = flatten(state_1)
         state_2 = flatten(state_2)
 
-        print ">train a", action, "r", reward
 
         # >>> DEBUG
 #        print "core_q_values BEFORE", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
@@ -185,7 +185,7 @@ class NNQTablePolicy(object):
 #        print "core_q_values AFTER", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
 
         # copy across target network from time to time
-        if self.calls_to_train % self.target_network_update_coeff == 0:
+        if self.calls_to_train % self.target_network_update_freq == 0:
             self.sess.run(self.clobber_target_net_op)
 
     def debug_model(self):
