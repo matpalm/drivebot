@@ -1,6 +1,7 @@
 # utils for converting a stream of sensor data into a state suitable
 # for a policy to use.
 
+import copy
 import itertools
 import numpy as np
 
@@ -65,10 +66,7 @@ class StateHistory:
         else:
             self.state_.append(partial_state)
             self.state_.pop(0)
-        # flatten the list of lists and, for the purpose of
-        # nn_q_table_policy, wrap it in another []
-#            flattened_state = list(itertools.chain.from_iterable(flattened_state))
-        return self.state_
+        return copy.deepcopy(self.state_)
 
     def state_size(self):
         return self.history_length * 3
