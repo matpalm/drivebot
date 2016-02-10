@@ -34,14 +34,16 @@ class DiscreteQTablePolicy(object):
         return u.normalised(u.raised(self.q_table[state], self.state_normalisation_squash))
         
     def action_given_state(self, state):
-        state = tuple(state)
+        if type(state) == list:
+            state = tuple(state)
         normed = self.q_values_normalised_for_pick(state)
         action = u.weighted_choice(normed)
         print "CHOOSE\t based on state", state, "q_values", self.q_table[state], "(normed to", normed, ") => action", action
         return action
 
     def train(self, state_1, action, reward, state_2):
-        state_1, state_2 = tuple(state_1), tuple(state_2)
+        if type(state_1) == list:
+            state_1, state_2 = tuple(state_1), tuple(state_2)
         current_q_s_a = self.q_table[state_1][action]
 
         max_possible_return_from_state_2 = np.max(self.q_table[state_2])
