@@ -2,15 +2,25 @@
 
 ## running ros env
 
-stdr sim & gui with single bot
+stdr sim
 
 ```
-roslaunch stdr_launchers server_with_map_and_gui_plus_robot.launch 
+roslaunch stdr_launchers server_no_map.launch
 ```
 
-optionally run rviz at same time (eg for odom visulations)
+load map and add three bots...
 
 ```
+rosservice call /stdr_server/load_static_map "mapFile: '$PWD/maps/track1.yaml'"
+rosrun stdr_robot robot_handler add $PWD/maps/pandora_robot.yaml 5 5 0
+rosrun stdr_robot robot_handler add $PWD/maps/pandora_robot.yaml 5 5 0
+rosrun stdr_robot robot_handler add $PWD/maps/pandora_robot.yaml 5 5 0
+```
+
+optionally run gui (for general sanity) and rviz (for odom visulations)
+
+```
+roslaunch stdr_gui stdr_gui.launch
 roslaunch stdr_launchers rviz.launch
 ```
 
