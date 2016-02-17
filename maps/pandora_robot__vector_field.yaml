@@ -1,0 +1,26 @@
+robot:
+  robot_specifications:
+    - footprint:
+        footprint_specifications:
+          radius: 0.200000002980232
+          points:
+            []
+    - initial_pose:
+        x: 0
+        y: 0
+        theta: 0
+    - sonar:
+        sonar_specifications:
+          cone_angle: 0.870000004768372
+          max_range: 3
+          min_range: 0.150000005960464
+          frequency: 10
+          frame_id: sonar_0
+          pose:
+            x: 0.1
+            y: 0
+            theta: 0
+          noise:
+            noise_specifications:
+              noise_mean: 0.0
+              noise_std: 0.0
