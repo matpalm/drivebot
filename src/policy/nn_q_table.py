@@ -103,7 +103,7 @@ class NNQTablePolicy(object):
 
         # right hand side of bellman update; reward + max_a Q(s2, a')
         self.reward = tf.placeholder(dtype=tf.float32)
-        self.max_target_q_value_plus_reward = self.reward + tf.stop_gradient(self.discount * tf.reduce_max(self.target_q_values))
+        self.max_target_q_value_plus_reward = self.reward + (self.discount * tf.stop_gradient(tf.reduce_max(self.target_q_values)))
 
         # for loss just use squared loss on the difference
         self.temporal_difference_loss = tf.reduce_mean(tf.pow(self.max_target_q_value_plus_reward - self.core_q_value_for_action, 2))
