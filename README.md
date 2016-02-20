@@ -1,5 +1,7 @@
 # drivebot
 
+for more general info see [the blog post](http://matpalm.com/blog/drivebot/)
+
 ## running ros env
 
 stdr sim
