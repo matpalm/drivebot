@@ -1,6 +1,6 @@
 from collections import Counter
-from drivebot.msg import TrainingExample
 import numpy as np
+import random
 import rospy
 import states
 import tensorflow as tf
@@ -70,7 +70,6 @@ class NNQTablePolicy(object):
         self.target_network_update_coeff = target_network_update_coeff
         with tf.device("/cpu:0"):
             self.setup_models(hidden_layer_size, summary_file)
-        rospy.Subscriber('/drivebot/training_egs', TrainingExample, self.training_msg_callback)
         self.episode_stats = Counter()
         self.calls_to_train = 0
 
@@ -130,12 +129,9 @@ class NNQTablePolicy(object):
         q_values = self.sess.run(self.core_q_values, feed_dict={self.core_state: state})
         normed = u.normalised(u.raised(q_values[0], self.state_normalisation_squash))
         action = u.weighted_choice(normed)
-        print "CHOOSE\t based on state", state, "q_values", q_values, "(normed to", normed, ") => action", action
+        if random.random() < 0.1:
+            print ">action_given_state  state %s q_values %s normed %s action %s" % (state, q_values, normed, action)
         return action
-
-    def training_msg_callback(self, eg):
-        self.episode_stats['callback_training_eg'] += 1
-        self.train(eg.state1, eg.action, eg.reward, eg.state2)
 
     def train(self, state_1, action, reward, state_2):
         self.episode_stats['>train'] += 1
@@ -144,7 +140,6 @@ class NNQTablePolicy(object):
 
         state_1 = flatten(state_1)
         state_2 = flatten(state_2)
-
 
         # >>> DEBUG
 #        print "core_q_values BEFORE", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
@@ -188,15 +183,11 @@ class NNQTablePolicy(object):
         if self.calls_to_train % self.target_network_update_freq == 0:
             self.sess.run(self.clobber_target_net_op)
 
-    def debug_model(self):
-        pass
-        #TODO:
-
-    def end_of_episode(self):
-        print ">>> end of episode stats"
-        self.refresh_params()
-        print "EPISODE STATS", self.episode_stats
-        self.episode_stats = Counter()
+        # occasionally dump debug
+        if self.calls_to_train % 100 == 0:
+            self.refresh_params()
+            print "EPISODE STATS", self.episode_stats
+            self.episode_stats = Counter()
 
 
 

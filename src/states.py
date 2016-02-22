@@ -9,7 +9,7 @@ import numpy as np
 # { F, L, R }
 class FurthestSonar:
     def state_given_new_ranges(self, ranges):
-        return np.argmax(ranges)
+        return [np.argmax(ranges)]
 
     def reset(self):
         pass
@@ -23,7 +23,7 @@ class OrderingSonars:
     def state_given_new_ranges(self, ranges):
         i_v_sorted_by_v = sorted(enumerate(ranges), key=lambda (i, v): -v)
         just_i = [i for (i, v) in i_v_sorted_by_v]
-        return tuple(just_i)
+        return just_i
 
     def reset(self):
         pass
