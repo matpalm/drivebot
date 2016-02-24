@@ -9,16 +9,17 @@ import sys
 
 class Sonars(object):
 
-    def __init__(self, robot_id):
+    def __init__(self, robot_id, num_sonars=3):
         self.robot_id = robot_id
+        self.num_sonars = num_sonars
         self.reset()
-        for idx in range(0, 3):
+        for idx in range(0, num_sonars):
             # sonar 0, 1 & 2 => forward, left & right
             rospy.Subscriber("/robot%s/sonar_%s" % (self.robot_id, idx), Range, self.sonar_callback)
 
     def reset(self):
         # dft noop value for case of sonars not publishing yet
-        self.ranges = [0] * 3
+        self.ranges = [0] * self.num_sonars
 
     def sonar_callback(self, msg):
         # record callback from one sonar into ranges []

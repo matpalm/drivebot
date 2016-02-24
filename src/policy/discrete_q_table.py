@@ -61,7 +61,7 @@ class DiscreteQTablePolicy(object):
         # stats
         self.state_train_freq[state_1] += 1
         self.calls_to_train += 1
-        if self.calls_to_train % 1000 == 0:
+        if self.calls_to_train % 100 == 0:
             print ">>> end of episode stats"
             print "DEBUG QTABLE:"
             state_freqs = list(self.state_train_freq.iteritems())

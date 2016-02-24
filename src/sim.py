@@ -21,6 +21,7 @@ import util as u
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
+parser.add_argument('--num-sonars', type=int, default=3)
 parser.add_argument('--max-episode-len', type=int, default=1000)
 parser.add_argument('--num-episodes', type=int, default=100000)
 parser.add_argument('--episode-log-file', default="/dev/stdout", 
@@ -50,7 +51,7 @@ if opts.state_history_length > 1:
     sonar_to_state = states.StateHistory(sonar_to_state, opts.state_history_length)
 
 # helper for max-distance of sonars
-sonars = Sonars(opts.robot_id)
+sonars = Sonars(opts.robot_id, opts.num_sonars)
 
 # helper for tracking reward based on robot odom
 #odom_reward = odom_reward.CoarseGridReward(opts.robot_id)

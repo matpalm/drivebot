@@ -14,8 +14,6 @@ class FurthestSonar:
     def reset(self):
         pass
 
-    def state_size(self):
-        return 1
 
 # given sonar readings return a state based on the 6 possible orderings.
 # { FLR, FRL, LFR, LRF, RFL, RLf }
@@ -28,8 +26,6 @@ class OrderingSonars:
     def reset(self):
         pass
 
-    def state_size(self):
-        return 3
 
 # standardises sonar values based on some (precomputed) mean / std
 class StandardisedSonars:
@@ -42,9 +38,6 @@ class StandardisedSonars:
 
     def reset(self):
         pass
-
-    def state_size(self):
-        return 3
 
 
 # wrap another sonar reader and keep track of last history_length entries.
@@ -68,6 +61,4 @@ class StateHistory:
             self.state_.pop(0)
         return copy.deepcopy(self.state_)
 
-    def state_size(self):
-        return self.history_length * 3
 

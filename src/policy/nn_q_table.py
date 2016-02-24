@@ -11,7 +11,7 @@ def flatten(state):
 
 def one_hot_1d(idx, n):
     # hack!
-    oh = [0.0] * n
+    oh = np.zeros(n)
     oh[idx] = 1.0
     return [oh]
 
@@ -74,15 +74,10 @@ class NNQTablePolicy(object):
         self.calls_to_train = 0
 
     def refresh_params(self):
-        if not self.refreshable_params_inited:
-            with tf.variable_scope("refreshable_params"):
-                self.discount = tf.Variable(0.9, "discount")
-                self.learning_rate = tf.Variable(0.01, "learning_rate")
-            self.refreshable_params_inited = True
         params = rospy.get_param("q_table_policy")
         print "REFRESH_PARAM\t%s" % params        
-        self.discount.assign(params['discount'])
-        self.learning_rate.assign(params['learning_rate'])
+        self.discount = params['discount']
+        self.learning_rate = params['learning_rate']
         self.state_normalisation_squash = params['state_normalisation_squash']
         self.summary_log_freq = params['summary_log_freq']
         self.target_network_update_freq = params['target_network_update_freq']
@@ -102,11 +97,13 @@ class NNQTablePolicy(object):
 
         # right hand side of bellman update; reward + max_a Q(s2, a')
         self.reward = tf.placeholder(dtype=tf.float32)
-        self.max_target_q_value_plus_reward = self.reward + (self.discount * tf.stop_gradient(tf.reduce_max(self.target_q_values)))
+        self.discount_p = tf.placeholder(dtype=tf.float32)
+        self.max_target_q_value_plus_reward = self.reward + (self.discount_p * tf.stop_gradient(tf.reduce_max(self.target_q_values)))
 
         # for loss just use squared loss on the difference
         self.temporal_difference_loss = tf.reduce_mean(tf.pow(self.max_target_q_value_plus_reward - self.core_q_value_for_action, 2))
-        optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+        self.learning_rate_p = tf.placeholder(dtype=tf.float32)
+        optimizer = tf.train.GradientDescentOptimizer(self.learning_rate_p)
         #optimizer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate, decay=0.9)
         gradients = optimizer.compute_gradients(self.temporal_difference_loss)
         for i, (gradient, variable) in enumerate(gradients):
@@ -129,8 +126,10 @@ class NNQTablePolicy(object):
         q_values = self.sess.run(self.core_q_values, feed_dict={self.core_state: state})
         normed = u.normalised(u.raised(q_values[0], self.state_normalisation_squash))
         action = u.weighted_choice(normed)
-        if random.random() < 0.1:
-            print ">action_given_state  state %s q_values %s normed %s action %s" % (state, q_values, normed, action)
+        if random.random() <= 0.05:
+            q_values_str = " ".join(map(str, ["%0.2f" % v for v in q_values[0]]))
+            normed_str = " ".join(map(str, ["%0.2f" % v for v in normed]))
+            print ">action_given_state  state %s q_values %s normed %s action %s" % (state, q_values_str, normed_str, action)
         return action
 
     def train(self, state_1, action, reward, state_2):
@@ -142,27 +141,22 @@ class NNQTablePolicy(object):
         state_2 = flatten(state_2)
 
         # >>> DEBUG
-#        print "core_q_values BEFORE", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
-#        print "target_q_values", self.sess.run(self.target_q_values, feed_dict={self.target_state: state_2})
-#        print "max_target_q_value_plus_reward", self.sess.run(self.max_target_q_value_plus_reward,
-#                                                              feed_dict={self.reward: reward,
-#                                                                         self.target_state: state_2})
-#        print "core_q_value_for_action 0", self.sess.run(self.core_q_value_for_action,
-#                                                            feed_dict={self.core_action_mask: one_hot_1d(0, 2),
-#                                                                       self.core_state: state_1})
-#        print "core_q_value_for_action 1", self.sess.run(self.core_q_value_for_action,
-#                                                            feed_dict={self.core_action_mask: one_hot_1d(1, 2),
-#                                                                        self.core_state: state_1})
-#        print "temporal_difference_loss; s0", self.sess.run(self.temporal_difference_loss,
-#                                                        feed_dict={self.core_action_mask: one_hot_1d(0, 2),
-#                                                                   self.core_state: state_1,
-#                                                                   self.reward: reward,
-#                                                                   self.target_state: state_2})
-#        print "temporal_difference_loss; s1", self.sess.run(self.temporal_difference_loss,
-#                                                        feed_dict={self.core_action_mask: one_hot_1d(1, 2),
-#                                                                   self.core_state: state_1,
-#                                                                   self.reward: reward,
-#                                                                   self.target_state: state_2})
+        debug = False
+        if debug:
+            print ">>>>DEBUG  learning_rate", self.learning_rate, "discount", self.discount
+            print "state1 %s action %s reward %s state2 %s" % (state_1, action, reward, state_2)
+            print "core_q_values BEFORE", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
+            print "target_q_values", self.sess.run(self.target_q_values, feed_dict={self.target_state: state_2})
+            print "max_target_q_value_plus_reward", self.sess.run(self.max_target_q_value_plus_reward,
+                                                                  feed_dict={self.reward: reward,
+                                                                             self.discount_p: self.discount,
+                                                                             self.target_state: state_2})
+            print "temporal_difference_loss", self.sess.run(self.temporal_difference_loss,
+                                                            feed_dict={self.core_action_mask: one_hot_1d(action, self.num_actions),
+                                                                       self.core_state: state_1,
+                                                                       self.reward: reward,
+                                                                       self.discount_p: self.discount,
+                                                                       self.target_state: state_2})
         # <<< DEBUG
 
 
@@ -170,23 +164,27 @@ class NNQTablePolicy(object):
         training_feed_dict = {self.core_state: state_1,
                               self.core_action_mask: one_hot_1d(action, self.num_actions),
                               self.reward: reward,
-                              self.target_state: state_2}
+                              self.discount_p: self.discount,
+                              self.target_state: state_2, 
+                              self.learning_rate_p: self.learning_rate}
         if self.calls_to_train % self.summary_log_freq == 0:
             _opt, summaries = self.sess.run([self.train_op, self.summaries], feed_dict=training_feed_dict)
             self.summary_writer.add_summary(summaries, self.calls_to_train)
         else:
             _opt = self.sess.run(self.train_op, feed_dict=training_feed_dict)
 
-#        print "core_q_values AFTER", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
+        if debug:
+            print "core_q_values AFTER", self.sess.run(self.core_q_values, feed_dict={self.core_state: state_1})
 
         # copy across target network from time to time
         if self.calls_to_train % self.target_network_update_freq == 0:
+            print "TARGET NETWORK UPDATE"
             self.sess.run(self.clobber_target_net_op)
 
         # occasionally dump debug
         if self.calls_to_train % 100 == 0:
             self.refresh_params()
-            print "EPISODE STATS", self.episode_stats
+            print "STATS", self.episode_stats
             self.episode_stats = Counter()
 
 
