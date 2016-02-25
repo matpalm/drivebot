@@ -70,7 +70,7 @@ class NNQTablePolicy(object):
         self.target_network_update_coeff = target_network_update_coeff
         with tf.device("/cpu:0"):
             self.setup_models(hidden_layer_size, summary_file)
-        self.episode_stats = Counter()
+        self.stats = Counter()
         self.calls_to_train = 0
 
     def refresh_params(self):
@@ -133,9 +133,9 @@ class NNQTablePolicy(object):
         return action
 
     def train(self, state_1, action, reward, state_2):
-        self.episode_stats['>train'] += 1
+        self.stats['>train'] += 1
         self.calls_to_train += 1
-        self.episode_stats["train a %s r %s" % (action, reward)] += 1
+        self.stats["train a %s r %s" % (action, reward)] += 1
 
         state_1 = flatten(state_1)
         state_2 = flatten(state_2)
@@ -178,14 +178,13 @@ class NNQTablePolicy(object):
 
         # copy across target network from time to time
         if self.calls_to_train % self.target_network_update_freq == 0:
-            print "TARGET NETWORK UPDATE"
             self.sess.run(self.clobber_target_net_op)
 
         # occasionally dump debug
-        if self.calls_to_train % 100 == 0:
+        if self.calls_to_train % self.summary_log_freq == 0:
             self.refresh_params()
-            print "STATS", self.episode_stats
-            self.episode_stats = Counter()
+            print "STATS", self.stats
+            self.stats = Counter()
 
 
 
