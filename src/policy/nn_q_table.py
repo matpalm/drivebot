@@ -9,12 +9,6 @@ import util as u
 def flatten(state):
     return np.asarray(state).reshape(1, -1)
 
-def one_hot_1d(idx, n):
-    # hack!
-    oh = np.zeros(n)
-    oh[idx] = 1.0
-    return [oh]
-
 # build a (grouped) copy op that copies the values of all variables between two namespaces.
 # use an affine_coefficient to denote the amount copied.
 # target = affine_coefficient * src  +  (1.0-affine_coefficient * target)
@@ -47,18 +41,15 @@ def mlp_layer(namespace, input, input_size, output_size, include_non_linearity=F
         return tf.nn.sigmoid(output) if include_non_linearity else output
 
 def build_model(namespace, state_size, num_actions, hidden_layer_size):
-    # input is a sequence of 5 * 3 readings; 5 for last 5 in history, 3 for readings (F, L, R)
+    # input is a sequence of 5 * A readings; 5 for last 5 in history, A for readings (F, L, R, B, (whatever?))
     # (i.e. they are just concatted for this version as opposed to treated as a seqeucen)
-    input_state = tf.placeholder(dtype = tf.float32, shape = [None, state_size])
+    input_state = tf.placeholder(dtype = tf.float32, shape = [None, state_size], name="input_state")
     with tf.variable_scope(namespace):
         hidden = mlp_layer("h1", input_state, state_size, hidden_layer_size, include_non_linearity=True)
         model = mlp_layer("out", hidden, hidden_layer_size, num_actions, include_non_linearity=False)
     return input_state, model
 
-
-# simple single hidden layer neural net for regressing q value for 3 actions
-# based on last 5 sonar readings
-# input is 15 element
+# simple single hidden layer neural net for regressing q value for actions
 class NNQTablePolicy(object):
 
     def __init__(self, state_size, num_actions, hidden_layer_size, gradient_clip, target_network_update_coeff, summary_file):
@@ -72,6 +63,7 @@ class NNQTablePolicy(object):
             self.setup_models(hidden_layer_size, summary_file)
         self.stats = Counter()
         self.calls_to_train = 0
+        self.one_hot = np.eye(num_actions)
 
     def refresh_params(self):
         params = rospy.get_param("q_table_policy")
@@ -92,17 +84,18 @@ class NNQTablePolicy(object):
                                                    affine_coefficient=self.target_network_update_coeff)
 
         # left hand side of the bellman update; Q(s1, a)
-        self.core_action_mask = tf.placeholder(dtype=tf.float32, shape=[None, self.num_actions])  # one hot mask over actions
+        self.core_action_mask = tf.placeholder(dtype=tf.float32, shape=[None, self.num_actions],
+                                               name="core_action_mask")
         self.core_q_value_for_action = tf.reduce_sum(self.core_q_values * self.core_action_mask)
 
         # right hand side of bellman update; reward + max_a Q(s2, a')
-        self.reward = tf.placeholder(dtype=tf.float32)
-        self.discount_p = tf.placeholder(dtype=tf.float32)
+        self.reward = tf.placeholder(dtype=tf.float32, name="reward")
+        self.discount_p = tf.placeholder(dtype=tf.float32, name="discount")
         self.max_target_q_value_plus_reward = self.reward + (self.discount_p * tf.stop_gradient(tf.reduce_max(self.target_q_values)))
 
         # for loss just use squared loss on the difference
         self.temporal_difference_loss = tf.reduce_mean(tf.pow(self.max_target_q_value_plus_reward - self.core_q_value_for_action, 2))
-        self.learning_rate_p = tf.placeholder(dtype=tf.float32)
+        self.learning_rate_p = tf.placeholder(dtype=tf.float32, name="learning_rate")
         optimizer = tf.train.GradientDescentOptimizer(self.learning_rate_p)
         #optimizer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate, decay=0.9)
         gradients = optimizer.compute_gradients(self.temporal_difference_loss)
@@ -152,7 +145,7 @@ class NNQTablePolicy(object):
                                                                              self.discount_p: self.discount,
                                                                              self.target_state: state_2})
             print "temporal_difference_loss", self.sess.run(self.temporal_difference_loss,
-                                                            feed_dict={self.core_action_mask: one_hot_1d(action, self.num_actions),
+                                                            feed_dict={self.core_action_mask: [self.one_hot[action]],
                                                                        self.core_state: state_1,
                                                                        self.reward: reward,
                                                                        self.discount_p: self.discount,
@@ -162,7 +155,7 @@ class NNQTablePolicy(object):
 
         # train against temporal difference. write summaries every 100th call
         training_feed_dict = {self.core_state: state_1,
-                              self.core_action_mask: one_hot_1d(action, self.num_actions),
+                              self.core_action_mask: [self.one_hot[action]],
                               self.reward: reward,
                               self.discount_p: self.discount,
                               self.target_state: state_2, 

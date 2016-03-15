@@ -19,6 +19,8 @@ import states
 import sys
 import util as u
 
+NUM_ACTIONS = 4
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
 parser.add_argument('--num-sonars', type=int, default=3)
@@ -38,7 +40,10 @@ print "OPTS", opts
 
 episode_log = open(opts.episode_log_file, "w")
 
-# config sonar -> state transformation
+# wrapper for reading bot sonars
+sonars = Sonars(opts.robot_id, opts.num_sonars)
+
+# mapping from raw sonar readings to some state representation
 if opts.sonar_to_state == "FurthestSonar":
     sonar_to_state = states.FurthestSonar()
 elif opts.sonar_to_state == "OrderingSonars":
@@ -50,16 +55,15 @@ else:
 if opts.state_history_length > 1:
     sonar_to_state = states.StateHistory(sonar_to_state, opts.state_history_length)
 
-# helper for max-distance of sonars
-sonars = Sonars(opts.robot_id, opts.num_sonars)
-
 # helper for tracking reward based on robot odom
 #odom_reward = odom_reward.CoarseGridReward(opts.robot_id)
 odom_reward = odom_reward.MovingOdomReward(opts.robot_id)
 
-# simple dicrete move-forward, turn-left, turn-right control set
+# simple discrete movements; forward, back, left, right
 forward = Twist()
 forward.linear.x = 1.0
+backwards = Twist()
+backwards.linear.x = -forward.linear.x
 turn_left = Twist()
 turn_left.angular.z = 1.2
 turn_right = Twist()
@@ -79,6 +83,7 @@ rospy.wait_for_service("/drivebot/action_given_state")
 action_given_state = rospy.ServiceProxy("/drivebot/action_given_state", ActionGivenState)
 
 # run sim for awhile
+rate = rospy.Rate(5)  # hz
 for episode_id in range(opts.num_episodes):
     # reset robot state
     reset_pos.reset_robot_random_pose()
@@ -90,12 +95,11 @@ for episode_id in range(opts.num_episodes):
     # for a async simulated time system the "gap" between a and r is represented by a
     # 'rate' limited loop for debugging (and more flexible replay) we also keep track
     # of the raw sonar.ranges in the event
+    episode = []
+    event_id = 0
     last_ranges = None
     last_state = None
     last_action = None
-    episode = []
-    rate = rospy.Rate(5)  # hz
-    event_id = 0
     last_reward = None
     # we keep track of runs of 0 rewards as a way of early stopping episode
     no_rewards_run_len = 0
@@ -127,12 +131,15 @@ for episode_id in range(opts.num_episodes):
             steering.publish(turn_left)
         elif action == 2:
             steering.publish(turn_right)
+        elif action == 3:
+            steering.publish(backwards)
         else:
             assert False, "unknown action [%s] (type=%s)" % (action, type(action))
 
         # flush a single event to episode and train with it
         if last_state is not None:
             event = OrderedDict()
+            event['bot_id'] = opts.robot_id
             event['epi_id'] = episode_id
             event['eve_id'] = event_id
             event['ranges_1'] = last_ranges

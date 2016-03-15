@@ -43,16 +43,11 @@ class MovingOdomReward(object):
             self.last_pos = self.latest_pos
             return 0
                 
-        # give reward if any movement made. 
-        if not close(self.latest_pos, self.last_pos):
-            r = 1
-        else:
-            if last_action == 0 :
-                # explictly punish if no movement made and last action was to move forward
-                r = -1
-            else:
-                # no reward, but we're turning, so no reward, but no punishment
-                r = 0
+        # give reward if we asked to move forward and any movement made. 
+        r = 0
+        if last_action == 0:
+            moved = not close(self.latest_pos, self.last_pos)
+            r = 1 if moved else -1
 
         # update last pos
         self.last_pos = self.latest_pos

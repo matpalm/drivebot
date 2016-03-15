@@ -6,13 +6,13 @@ import sys
 BUCKET_WIDTH = 50 if len(sys.argv)==1 else int(sys.argv[1])
 
 def action_factor(e):
-    return {0: "forward", 1: "left", 2: "right"}[e['action']]
+    return {0: "forward", 1: "left", 2: "right", 3:"back"}[e['action']]
 
 # {bucket: {action: action_freq, ...}                                                                                    
 counts = defaultdict(Counter)
 for n, episode_json in enumerate(sys.stdin):
     for event in json.loads(episode_json):
-        # set bucket to be upper bound of bucket range                                                                   
+        # set bucket to be upper bound of bucket range
         bucket = ((n / BUCKET_WIDTH)+1) * BUCKET_WIDTH
         counts[bucket][action_factor(event)] += 1
 

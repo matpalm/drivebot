@@ -48,15 +48,16 @@ rospy.set_param("/q_table_policy/target_network_update_freq",
                 opts.target_network_update_freq)
 
 # build policy
+NUM_ACTIONS = 4  # TODO: shared with sim
 if opts.policy == "Baseline":
     policy = policy.baseline.BaselinePolicy()
 elif opts.policy == "DiscreteQTablePolicy":
-    policy = policy.discrete_q_table.DiscreteQTablePolicy(num_actions=3)
+    policy = policy.discrete_q_table.DiscreteQTablePolicy(num_actions=NUM_ACTIONS)
 elif opts.policy == "NNQTablePolicy":
-    hidden_size = int(math.sqrt(opts.state_size * 3))  # 3 actions
+    hidden_size = int(math.sqrt(opts.state_size * NUM_ACTIONS))
     print "NNQTablePolicy #input", opts.state_size, "#hidden", hidden_size
     policy = policy.nn_q_table.NNQTablePolicy(state_size=opts.state_size,
-                        num_actions=3, hidden_layer_size=hidden_size,
+                        num_actions=NUM_ACTIONS, hidden_layer_size=hidden_size,
                         gradient_clip=opts.gradient_clip,
                         target_network_update_coeff=opts.target_network_update_coeff,
                         summary_file=opts.summary_log_dir)
