@@ -2,6 +2,24 @@
 
 for more general info see [the blog post](http://matpalm.com/blog/drivebot/)
 
+## building drivebot ROS package
+
+drivebot has two ROS specific components that need to be built.
+
+* a `ActionGivenState.srv` service definition that describes how bots (real or simulated) interface with the NN policy
+* a `TrainingExample.msg` msg definition that describes training examples sent to the NN policy`
+
+```
+# build msg and service definitions
+cd $ROOT_OF_CHECKOUT  # whatever this is...
+cd ros_ws
+catkin_make
+
+# add various ROS related paths to environment variables
+# (add this to .bashrc if required)
+source $ROOT_OF_CHECKOUT/ros_ws/devel/setup.bash
+```
+
 ## running ros env
 
 stdr sim
