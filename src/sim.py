@@ -19,7 +19,7 @@ import states
 import sys
 import util as u
 
-NUM_ACTIONS = 4
+NUM_ACTIONS = 4  # TODO shared with policy_runner
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--robot-id', type=int, default=0)
@@ -62,8 +62,6 @@ odom_reward = odom_reward.MovingOdomReward(opts.robot_id)
 # simple discrete movements; forward, back, left, right
 forward = Twist()
 forward.linear.x = 1.0
-backwards = Twist()
-backwards.linear.x = -forward.linear.x
 turn_left = Twist()
 turn_left.angular.z = 1.2
 turn_right = Twist()
@@ -91,7 +89,7 @@ for episode_id in range(opts.num_episodes):
     odom_reward.reset()
     sonar_to_state.reset()
 
-    # an episode is a stream of [state_1, action, reward, state_2] events
+    # an episode is a stream of [state_1, discrete_action, reward, state_2] events
     # for a async simulated time system the "gap" between a and r is represented by a
     # 'rate' limited loop for debugging (and more flexible replay) we also keep track
     # of the raw sonar.ranges in the event
@@ -131,8 +129,6 @@ for episode_id in range(opts.num_episodes):
             steering.publish(turn_left)
         elif action == 2:
             steering.publish(turn_right)
-        elif action == 3:
-            steering.publish(backwards)
         else:
             assert False, "unknown action [%s] (type=%s)" % (action, type(action))
 
@@ -144,7 +140,7 @@ for episode_id in range(opts.num_episodes):
             event['eve_id'] = event_id
             event['ranges_1'] = last_ranges
             event['state_1'] = last_state
-            event['action'] = last_action
+            event['discrete_action'] = last_action
             event['reward'] = reward
             event['ranges_2'] = current_ranges
             event['state_2'] = current_state

@@ -48,7 +48,7 @@ rospy.set_param("/q_table_policy/target_network_update_freq",
                 opts.target_network_update_freq)
 
 # build policy
-NUM_ACTIONS = 4  # TODO: shared with sim
+NUM_ACTIONS = 3  # TODO: shared with sim
 if opts.policy == "Baseline":
     policy = policy.baseline.BaselinePolicy()
 elif opts.policy == "DiscreteQTablePolicy":
@@ -66,7 +66,7 @@ else:
 
 # wire training_egs topic to policy
 def call_policy_training(eg):
-    policy.train(eg.state1, eg.action, eg.reward, eg.state2)
+    policy.train(eg.state1, eg.discrete_action, eg.reward, eg.state2)
 rospy.Subscriber('/drivebot/training_egs', TrainingExample, call_policy_training)
 
 # proxy action_given_state call to policy

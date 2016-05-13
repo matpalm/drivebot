@@ -82,7 +82,7 @@ class CoarseGridOdomReward(object):
     def odom_callback(self, msg):
         self.latest_pos = msg.pose.pose.position
 
-    def reward(self):
+    def reward(self, last_action):
         if self.latest_pos == None:
             # no callbacks yet
             return 0

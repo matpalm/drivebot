@@ -22,7 +22,11 @@ for line in sys.stdin:
     if rospy.is_shutdown():
         break
     event = json.loads(line)
-    eg = u.training_eg_msg(event['state_1'], event['action'], event['reward'], event['state_2'])
+    if 'action' in event:
+        print >sys.stderr, "DEPRECATED event; expected 'discrete_action', not 'action'"
+        event['discrete_action'] = event['action']
+    eg = u.training_eg_msg(event['state_1'], event['discrete_action'],
+                           event['reward'], event['state_2'])
     training.publish(eg)
     if rate is not None:
         rate.sleep()
