@@ -17,6 +17,7 @@ import rospy
 from sonars import Sonars
 import states
 import sys
+import time
 import util as u
 
 NUM_ACTIONS = 4  # TODO shared with policy_runner
@@ -35,6 +36,8 @@ parser.add_argument('--sonar-to-state', type=str, default="FurthestSonar",
                     " OrderingSonars / StandardisedSonars")
 parser.add_argument('--state-history-length', type=int, default=0,
                     help="if >1 wrap sonar-to-state in a StateHistory")
+parser.add_argument('--reward', type=str, default="Moving",
+                    help="reward type; Moving or CoarseGrid")
 opts = parser.parse_args()
 print "OPTS", opts
 
@@ -55,9 +58,18 @@ else:
 if opts.state_history_length > 1:
     sonar_to_state = states.StateHistory(sonar_to_state, opts.state_history_length)
 
-# helper for tracking reward based on robot odom
-#odom_reward = odom_reward.CoarseGridReward(opts.robot_id)
-odom_reward = odom_reward.MovingOdomReward(opts.robot_id)
+# helper for tracking reward based on robot odom. this is closely tied to the reset
+# positioning since coarse grid reward system expects robots to go only clockwise
+# 
+reset_pos = reset_robot_pos.BotPosition(opts.robot_id)
+if opts.reward == "Moving":
+    odom_reward = odom_reward.MovingOdomReward(opts.robot_id)
+    reset_pos_fn = reset_pos.reset_robot_random_pose
+elif opts.reward == "CoarseGrid":
+    odom_reward = odom_reward.CoarseGridOdomReward(opts.robot_id)
+    reset_pos_fn = reset_pos.reset_robot_on_straight_section
+else:
+    raise Exception("unknown --reward %s" % opts.reward)
 
 # simple discrete movements; forward, back, left, right
 forward = Twist()
@@ -74,7 +86,6 @@ training = rospy.Publisher("/drivebot/training_egs", TrainingExample, queue_size
 
 # init ros node
 rospy.init_node("drivebot_sim_%d" % opts.robot_id)
-reset_pos = reset_robot_pos.BotPosition(opts.robot_id)
 
 # wait for service to policy for deciding action
 rospy.wait_for_service("/drivebot/action_given_state")
@@ -84,7 +95,7 @@ action_given_state = rospy.ServiceProxy("/drivebot/action_given_state", ActionGi
 rate = rospy.Rate(5)  # hz
 for episode_id in range(opts.num_episodes):
     # reset robot state
-    reset_pos.reset_robot_random_pose()
+    reset_pos_fn()
     sonars.reset()
     odom_reward.reset()
     sonar_to_state.reset()
@@ -138,14 +149,14 @@ for episode_id in range(opts.num_episodes):
             event['bot_id'] = opts.robot_id
             event['epi_id'] = episode_id
             event['eve_id'] = event_id
+            event['time'] = int(time.time())
             event['ranges_1'] = last_ranges
             event['state_1'] = last_state
             event['discrete_action'] = last_action
             event['reward'] = reward
             event['ranges_2'] = current_ranges
             event['state_2'] = current_state
-            print "EVENT\tepi_id=%s eve_id=%s no_rewards_run_len=%s" % (episode_id, \
-                    event_id, no_rewards_run_len)
+            print "EVENT\te=%s\tno_rewards_run_len=%s" % (event, no_rewards_run_len)
             episode.append(event)
             training.publish(u.training_eg_msg(last_state, last_action, reward,
                                                current_state))

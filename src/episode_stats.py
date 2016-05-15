@@ -2,6 +2,8 @@
 import json
 import sys
 
+# parse 1 (or more) episode logs from stdin.
+# use time of most recent event as time of overall episode
 episode_id = 0 
 for line in sys.stdin:
     episode = json.loads(line)
