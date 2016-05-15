@@ -170,7 +170,7 @@ for episode_id in range(opts.num_episodes):
         # let sim run...
         rate.sleep()
 
-    # write episode to log
+    # write episode to log. use json just to piss everyone off.
     print >>episode_log, json.dumps(episode)
     episode_log.flush()
 
