@@ -2,6 +2,8 @@
 
 for more general info see [the blog post](http://matpalm.com/blog/drivebot/)
 
+for more advanced RL experiments (with less of a focus on sim-real transfer learning) see [cartpoleplusplus](https://github.com/matpalm/cartpoleplusplus)
+
 ## building drivebot ROS package
 
 drivebot has two ROS specific components that need to be built.
